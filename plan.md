@@ -899,7 +899,7 @@ Acceptance:
 
 ### Milestone 1 — Location and beautiful map
 
-- [ ] Explain and request foreground location.
+- [x] Explain and request foreground location.
 - [ ] Handle denied, unavailable and imprecise states.
 - [ ] Display current position on a custom Google Maps style.
 - [ ] Add mist/search-area visual treatment.
@@ -1263,6 +1263,8 @@ Do not claim the next level before the preceding behaviour exists.
 - Google OAuth credentials live in Supabase provider settings rather than application
   environment variables. Wanderfound receives a Supabase session after PKCE callback;
   all product rows use that verified user's `auth.uid()` from creation onward.
+- Foreground location is requested only after an explicit user tap. Location analytics
+  record outcome categories and coarse accuracy labels, never latitude or longitude.
 
 ### 2026-07-27
 
@@ -1404,11 +1406,11 @@ Done when:
 
 Depends on: WF-003
 
-- [ ] Explain why foreground location is needed before invoking the browser prompt.
-- [ ] State that Wanderfound does not request background location.
-- [ ] Add `Not now` and retry paths.
-- [ ] Track prompt viewed, granted and denied.
-- [ ] Avoid requesting permission automatically on page load.
+- [x] Explain why foreground location is needed before invoking the browser prompt.
+- [x] State that Wanderfound does not request background location.
+- [x] Add `Not now` and retry paths.
+- [x] Track prompt viewed, granted and denied.
+- [x] Avoid requesting permission automatically on page load.
 
 Done when:
 
