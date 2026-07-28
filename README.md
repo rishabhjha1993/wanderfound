@@ -2,6 +2,13 @@
 
 Wanderfound turns wherever you are into a walkable, AI-generated mystery.
 
+## Deployment
+
+- **Live:** https://wanderfound.vercel.app
+- **Source:** private GitHub repository `rishabhjha1993/wanderfound`
+- **Workflow:** pushes to `main` deploy to production; other branches receive
+  Vercel preview deployments.
+
 ## Local development
 
 Requirements:
