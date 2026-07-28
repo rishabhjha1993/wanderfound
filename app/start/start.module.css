@@ -1,0 +1,52 @@
+.page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: var(--space-5);
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(233, 185, 73, 0.2),
+      transparent 22rem
+    ),
+    var(--color-paper);
+}
+
+.card {
+  width: min(100%, 30rem);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--color-discovery-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.3rem, 10vw, 4rem);
+  line-height: 0.95;
+}
+
+.description {
+  margin: var(--space-5) 0;
+  color: var(--color-ink-soft);
+  line-height: 1.6;
+}
+
+.signOut {
+  border: 0;
+  padding: var(--space-3);
+  color: var(--color-ink-soft);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
