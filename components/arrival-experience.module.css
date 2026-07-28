@@ -3,20 +3,19 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  width: 100%;
   min-height: 100svh;
   overflow: hidden;
-  padding: max(var(--space-5), env(safe-area-inset-top))
-    max(var(--space-5), env(safe-area-inset-right))
-    max(var(--space-5), env(safe-area-inset-bottom))
-    max(var(--space-5), env(safe-area-inset-left));
+  padding: max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
   background:
     radial-gradient(
-      circle at 72% 21%,
-      rgba(233, 185, 73, 0.26),
+      circle at 78% 16%,
+      rgba(233, 185, 73, 0.2),
       transparent 24rem
     ),
-    linear-gradient(145deg, #f7f2e7 0%, var(--color-paper) 55%, #e5decb 100%);
+    linear-gradient(135deg, #f8f4ea 0%, #f1ebdc 58%, #e6deca 100%);
 }
 
 .topography {
@@ -24,49 +23,50 @@
   z-index: -1;
   inset: 0;
   overflow: hidden;
-  opacity: 0.65;
+  opacity: 0.72;
 }
 
 .topography span {
   position: absolute;
   display: block;
-  border: 1px solid rgba(21, 61, 53, 0.11);
+  border: 1px solid rgba(21, 61, 53, 0.1);
   border-radius: 48% 52% 55% 45% / 58% 35% 65% 42%;
   transform: rotate(-16deg);
 }
 
 .contourOne {
-  top: 11%;
-  right: -10rem;
-  width: 25rem;
-  height: 19rem;
+  top: -5rem;
+  right: -8rem;
+  width: 28rem;
+  height: 21rem;
   box-shadow:
-    0 0 0 1.35rem rgba(21, 61, 53, 0.035),
-    0 0 0 2.8rem rgba(21, 61, 53, 0.025),
-    0 0 0 4.35rem rgba(21, 61, 53, 0.02);
+    0 0 0 1.45rem rgba(21, 61, 53, 0.028),
+    0 0 0 3rem rgba(21, 61, 53, 0.022),
+    0 0 0 4.7rem rgba(21, 61, 53, 0.016);
 }
 
 .contourTwo {
-  bottom: 3%;
+  bottom: -7rem;
   left: -9rem;
-  width: 20rem;
-  height: 14rem;
+  width: 24rem;
+  height: 17rem;
   box-shadow:
-    0 0 0 1.5rem rgba(21, 61, 53, 0.03),
-    0 0 0 3rem rgba(21, 61, 53, 0.025);
+    0 0 0 1.5rem rgba(21, 61, 53, 0.025),
+    0 0 0 3rem rgba(21, 61, 53, 0.02);
 }
 
 .contourThree {
-  top: 47%;
-  left: 42%;
-  width: 9rem;
+  top: 45%;
+  left: 48%;
+  width: 10rem;
   height: 7rem;
-  opacity: 0.5;
+  opacity: 0.42;
 }
 
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: min(100%, 72rem);
   margin: 0 auto;
 }
@@ -77,7 +77,7 @@
   align-items: center;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   text-decoration: none;
 }
@@ -85,8 +85,8 @@
 .mark {
   position: relative;
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 1.9rem;
+  height: 1.9rem;
   place-items: center;
   border: 1px solid var(--color-ink);
   border-radius: 50%;
@@ -97,7 +97,7 @@
 .mark span {
   position: absolute;
   width: 1px;
-  height: 1.4rem;
+  height: 1.25rem;
   content: "";
   background: var(--color-ink);
   transform: rotate(35deg);
@@ -108,48 +108,81 @@
 }
 
 .mark span {
-  width: 0.42rem;
-  height: 0.42rem;
+  width: 0.38rem;
+  height: 0.38rem;
   border-radius: 50%;
   background: var(--color-discovery);
   transform: none;
 }
 
+.headerNote {
+  color: var(--color-ink-faint);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.arrival {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(19rem, 0.72fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  align-items: center;
+  width: min(100%, 67rem);
+  margin: auto;
+  padding: clamp(2.5rem, 7svh, 5.5rem) 0;
+}
+
 .hero {
-  width: min(100%, 39rem);
-  margin: clamp(3rem, 10svh, 7rem) auto 0;
-  text-align: center;
+  min-width: 0;
+}
+
+.eyebrow {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0 0 1.15rem;
+  color: var(--color-discovery-dark);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.eyebrow span {
+  width: 1.8rem;
+  height: 1px;
+  background: currentColor;
 }
 
 .hero h1 {
-  max-width: 12ch;
-  margin: 0 auto;
+  max-width: 9ch;
+  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 12vw, 6.8rem);
+  font-size: clamp(3.7rem, 7.2vw, 6.7rem);
   font-weight: 500;
-  letter-spacing: -0.055em;
-  line-height: 0.92;
-  text-wrap: balance;
+  letter-spacing: -0.06em;
+  line-height: 0.84;
 }
 
-.hero h1::first-line {
-  font-style: italic;
+.hero h1 em {
+  color: var(--color-discovery-dark);
+  font-weight: inherit;
 }
 
 .intro {
-  max-width: 35rem;
-  margin: var(--space-6) auto 0;
+  max-width: 31rem;
+  margin: 1.6rem 0 0;
   color: var(--color-ink-soft);
-  font-size: clamp(1rem, 2.8vw, 1.2rem);
-  line-height: 1.6;
-  text-wrap: balance;
+  font-size: clamp(0.98rem, 1.5vw, 1.12rem);
+  line-height: 1.65;
 }
 
 .discoveryMap {
   position: relative;
-  width: min(100%, 44rem);
-  height: 8rem;
-  margin: var(--space-5) auto calc(var(--space-5) * -1);
+  width: min(100%, 31rem);
+  height: 6.2rem;
+  margin-top: 1.5rem;
 }
 
 .route {
@@ -159,14 +192,14 @@
 
 .route::before {
   position: absolute;
-  top: 53%;
-  left: 16%;
-  width: 66%;
-  height: 2.9rem;
-  border-top: 2px dashed rgba(21, 61, 53, 0.28);
+  top: 48%;
+  left: 7%;
+  width: 79%;
+  height: 2.5rem;
+  border-top: 1.5px dashed rgba(21, 61, 53, 0.3);
   border-radius: 50%;
   content: "";
-  transform: rotate(-4deg);
+  transform: rotate(-5deg);
 }
 
 .route > span {
@@ -176,45 +209,45 @@
 }
 
 .routeStart {
-  top: 59%;
-  left: 15%;
-  width: 0.65rem;
-  height: 0.65rem;
+  top: 53%;
+  left: 6%;
+  width: 0.62rem;
+  height: 0.62rem;
   border: 2px solid var(--color-ink);
   background: var(--color-paper);
 }
 
 .routeDotOne,
 .routeDotTwo {
-  top: 44%;
-  left: 41%;
-  width: 0.34rem;
-  height: 0.34rem;
+  top: 37%;
+  left: 37%;
+  width: 0.3rem;
+  height: 0.3rem;
   background: var(--color-ink-faint);
 }
 
 .routeDotTwo {
-  top: 42%;
-  left: 61%;
+  top: 36%;
+  left: 62%;
 }
 
 .routeEnd {
-  top: 22%;
-  right: 14%;
-  width: 3.5rem;
-  height: 3.5rem;
+  top: 12%;
+  right: 8%;
+  width: 2.8rem;
+  height: 2.8rem;
   border: 1px solid rgba(242, 104, 74, 0.42);
   box-shadow:
-    0 0 0 0.75rem rgba(242, 104, 74, 0.1),
-    0 0 0 1.5rem rgba(242, 104, 74, 0.055);
+    0 0 0 0.6rem rgba(242, 104, 74, 0.09),
+    0 0 0 1.2rem rgba(242, 104, 74, 0.045);
   animation: search-pulse 2.8s var(--ease-out) infinite;
 }
 
 .routeEnd i {
   position: absolute;
   inset: 50% auto auto 50%;
-  width: 0.8rem;
-  height: 0.8rem;
+  width: 0.65rem;
+  height: 0.65rem;
   border-radius: 50%;
   background: var(--color-discovery);
   transform: translate(-50%, -50%);
@@ -224,162 +257,190 @@
 .mapLabelTwo {
   position: absolute;
   color: var(--color-ink-faint);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
 .mapLabelOne {
-  top: 72%;
-  left: 11%;
+  top: 71%;
+  left: 3%;
 }
 
 .mapLabelTwo {
-  top: 82%;
-  right: 4%;
+  top: 72%;
+  right: 0;
   color: var(--color-discovery-dark);
 }
 
 .actionCard {
-  width: min(100%, 29rem);
-  margin: 0 auto;
-  padding: var(--space-5);
+  width: 100%;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  border-color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 253, 248, 0.74);
+  box-shadow: 0 1.5rem 5rem rgba(21, 61, 53, 0.12);
 }
 
-.actionHeading {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-4);
-  align-items: start;
-  margin-bottom: var(--space-5);
-}
-
-.step {
-  display: grid;
-  width: 2.4rem;
-  height: 2.4rem;
-  place-items: center;
-  border: 1px solid var(--color-line);
-  border-radius: 50%;
+.cardKicker {
+  margin: 0 0 0.7rem;
   color: var(--color-discovery-dark);
-  font-family: var(--font-display);
-  font-size: 0.82rem;
-  font-style: italic;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
-.actionHeading h2 {
-  margin: 0 0 var(--space-1);
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.actionHeading p {
+.actionCard h2 {
   margin: 0;
-  color: var(--color-ink-soft);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
 }
 
-.authError {
-  margin-top: var(--space-3);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  color: #7d2f22;
-  background: rgba(242, 104, 74, 0.12);
-  font-size: 0.78rem;
-  text-align: center;
+.cardIntro {
+  margin: 0.85rem 0 1.45rem;
+  color: var(--color-ink-soft);
+  font-size: 0.87rem;
+  line-height: 1.55;
+}
+
+.googleButton {
+  justify-content: center;
+  min-height: 3.2rem;
+  color: var(--color-ink);
+  background: var(--color-white);
+  box-shadow:
+    inset 0 0 0 1px rgba(21, 61, 53, 0.16),
+    0 0.55rem 1.5rem rgba(21, 61, 53, 0.08);
+}
+
+.googleButton:hover {
+  background: #fff;
+  box-shadow:
+    inset 0 0 0 1px rgba(21, 61, 53, 0.25),
+    0 0.7rem 1.8rem rgba(21, 61, 53, 0.11);
 }
 
 .googleIcon {
   flex: 0 0 auto;
-  margin-right: var(--space-2);
+  margin-right: 0.6rem;
   border-radius: 50%;
   background: white;
 }
 
-.privacyNotice {
-  margin-top: var(--space-3);
+.authError {
+  margin: 0.75rem 0 0;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem;
+  color: #7d2f22;
+  background: rgba(242, 104, 74, 0.12);
+  font-size: 0.76rem;
+  text-align: center;
 }
 
-.shield {
-  color: var(--color-discovery-dark);
-  font-size: 1.2rem;
-  line-height: 1;
+.promises {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1.1rem;
+}
+
+.promises p {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0;
+  color: var(--color-ink-faint);
+  font-size: 0.7rem;
+}
+
+.promises span {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  color: var(--color-ink);
+  font-size: 0.72rem;
 }
 
 .footer {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-  justify-content: center;
+  gap: 1rem;
+  justify-content: space-between;
   width: min(100%, 72rem);
-  margin: auto auto 0;
-  padding-top: var(--space-8);
+  margin: 0 auto;
   color: var(--color-ink-faint);
-  font-size: 0.72rem;
-}
-
-.footer button {
-  border: 0;
-  padding: var(--space-2);
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 0.2em;
-}
-
-.footer button:hover {
-  color: var(--color-ink);
-  text-decoration-color: currentColor;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
 }
 
 .footerMark {
-  width: 100%;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  color: var(--color-ink-soft);
 }
 
 @keyframes search-pulse {
   50% {
     box-shadow:
-      0 0 0 1rem rgba(242, 104, 74, 0.08),
-      0 0 0 2rem rgba(242, 104, 74, 0.025);
+      0 0 0 0.85rem rgba(242, 104, 74, 0.07),
+      0 0 0 1.65rem rgba(242, 104, 74, 0.02);
   }
 }
 
-@media (min-width: 760px) {
-  .page {
-    padding-right: var(--space-10);
-    padding-left: var(--space-10);
+@media (max-width: 760px) {
+  .headerNote {
+    display: none;
   }
 
-  .actionCard {
-    padding: var(--space-6);
-  }
-
-  .footerMark {
-    width: auto;
-    margin-left: auto;
-  }
-}
-
-@media (max-height: 760px) {
-  .hero {
-    margin-top: var(--space-8);
+  .arrival {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 2.75rem 0 2rem;
   }
 
   .hero h1 {
-    font-size: clamp(2.75rem, 9svh, 4.8rem);
+    font-size: clamp(3.35rem, 17vw, 5.4rem);
+  }
+
+  .intro {
+    max-width: 29rem;
+    margin-top: 1.25rem;
   }
 
   .discoveryMap {
-    height: 6.5rem;
+    height: 4.8rem;
+    margin-top: 0.8rem;
+  }
+
+  .actionCard {
+    max-width: 31rem;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    font-size: 0.56rem;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 761px) {
+  .arrival {
+    padding: 1.75rem 0;
+  }
+
+  .hero h1 {
+    font-size: clamp(3.6rem, 11svh, 5.4rem);
+  }
+
+  .discoveryMap {
+    height: 4.8rem;
+    margin-top: 0.75rem;
   }
 }

@@ -44,3 +44,6 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# Supabase CLI's local project-link cache
+/supabase/.temp/
