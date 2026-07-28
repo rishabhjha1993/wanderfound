@@ -1,0 +1,319 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  overflow: hidden;
+  padding: max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
+  background:
+    radial-gradient(
+      circle at 78% 18%,
+      rgba(233, 185, 73, 0.22),
+      transparent 24rem
+    ),
+    linear-gradient(145deg, #f8f4ea, var(--color-paper) 58%, #e6deca);
+}
+
+.topography {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.7;
+}
+
+.topography span {
+  position: absolute;
+  display: block;
+  border: 1px solid rgba(21, 61, 53, 0.09);
+  border-radius: 48% 52% 55% 45% / 58% 35% 65% 42%;
+  transform: rotate(-14deg);
+}
+
+.contourOne {
+  top: -7rem;
+  right: -8rem;
+  width: 26rem;
+  height: 20rem;
+  box-shadow:
+    0 0 0 1.5rem rgba(21, 61, 53, 0.025),
+    0 0 0 3rem rgba(21, 61, 53, 0.018);
+}
+
+.contourTwo {
+  bottom: -7rem;
+  left: -8rem;
+  width: 22rem;
+  height: 16rem;
+  box-shadow: 0 0 0 1.5rem rgba(21, 61, 53, 0.025);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100%, 62rem);
+  margin: 0 auto;
+}
+
+.wordmark {
+  display: inline-flex;
+  gap: 0.65rem;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.mark {
+  position: relative;
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  place-items: center;
+  border: 1px solid var(--color-ink);
+  border-radius: 50%;
+}
+
+.mark::before,
+.mark::after,
+.mark span {
+  position: absolute;
+  width: 1px;
+  height: 1.25rem;
+  content: "";
+  background: var(--color-ink);
+  transform: rotate(35deg);
+}
+
+.mark::after {
+  transform: rotate(90deg);
+}
+
+.mark span {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: var(--color-discovery);
+  transform: none;
+}
+
+.step {
+  color: var(--color-ink-faint);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card {
+  width: min(100%, 29rem);
+  margin: auto;
+  padding: clamp(1.5rem, 4vw, 2.2rem);
+  border-color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 253, 248, 0.78);
+}
+
+.eyebrow {
+  margin: 0 0 0.7rem;
+  color: var(--color-discovery-dark);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  max-width: 13ch;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 7vw, 2.8rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+
+.description {
+  margin: 1rem 0 0;
+  color: var(--color-ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.promiseList {
+  display: grid;
+  gap: 0.85rem;
+  margin: 1.4rem 0;
+  border-block: 1px solid var(--color-line);
+  padding: 1.1rem 0;
+}
+
+.promise {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.promise > span {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  color: var(--color-discovery-dark);
+  font-size: 0.78rem;
+}
+
+.promise h2 {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.promise p {
+  margin: 0.15rem 0 0;
+  color: var(--color-ink-faint);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.7rem;
+  border: 0;
+  padding: 0.7rem 1rem;
+  color: var(--color-ink-soft);
+  background: transparent;
+  font: inherit;
+  font-size: 0.77rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.secondaryAction:hover {
+  color: var(--color-ink);
+  text-decoration-color: currentColor;
+}
+
+.browserHint {
+  margin: 0.35rem 0 0;
+  color: var(--color-ink-faint);
+  font-size: 0.63rem;
+  text-align: center;
+}
+
+.state {
+  display: grid;
+  justify-items: center;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
+.state h1 {
+  max-width: 14ch;
+}
+
+.state .description {
+  max-width: 25rem;
+  margin-bottom: 1.35rem;
+}
+
+.state form {
+  width: 100%;
+}
+
+.locatingMark,
+.successMark,
+.pauseMark,
+.warningMark {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-bottom: 1.4rem;
+  place-items: center;
+  border: 1px solid rgba(242, 104, 74, 0.35);
+  border-radius: 50%;
+  color: var(--color-discovery-dark);
+  background: rgba(242, 104, 74, 0.06);
+  box-shadow:
+    0 0 0 0.8rem rgba(242, 104, 74, 0.055),
+    0 0 0 1.6rem rgba(242, 104, 74, 0.025);
+}
+
+.locatingMark i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--color-discovery);
+  animation: locating 1.8s var(--ease-out) infinite;
+}
+
+.successMark {
+  color: var(--color-ink);
+  font-size: 1.6rem;
+}
+
+.pauseMark {
+  color: var(--color-ink-soft);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+}
+
+.warningMark {
+  color: var(--color-discovery-dark);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-style: italic;
+}
+
+.accuracy {
+  margin: -0.55rem 0 1rem;
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.65rem;
+  color: var(--color-ink-soft);
+  background: rgba(21, 61, 53, 0.07);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes locating {
+  50% {
+    transform: scale(1.6);
+    opacity: 0.45;
+  }
+}
+
+@media (max-width: 520px) {
+  .step {
+    display: none;
+  }
+
+  .card {
+    margin-top: 2.2rem;
+    margin-bottom: 1rem;
+    border-radius: 1.35rem;
+    padding: 1.3rem;
+  }
+
+  .card h1 {
+    font-size: clamp(2rem, 10vw, 2.55rem);
+  }
+}
