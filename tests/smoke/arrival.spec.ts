@@ -5,7 +5,7 @@ test("arrival route loads on a mobile viewport", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: "The world is hiding in plain sight.",
+      name: "Go out. Look closer.",
     }),
   ).toBeVisible();
 
