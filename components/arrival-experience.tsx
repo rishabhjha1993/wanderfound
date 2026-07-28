@@ -86,8 +86,8 @@ export function ArrivalExperience() {
         </section>
 
         <Card className={styles.actionCard}>
-          <p className={styles.cardKicker}>Ready when you are</p>
-          <h2>Start your adventure</h2>
+          <p className={styles.cardKicker}>Your adventure starts here</p>
+          <h2>Ready to wander?</h2>
           <p className={styles.cardIntro}>
             Sign in once, then we’ll build a trail around where you’re standing.
           </p>

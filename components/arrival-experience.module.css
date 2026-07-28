@@ -402,7 +402,7 @@
 
   .arrival {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
     padding: 2.75rem 0 2rem;
   }
 
@@ -422,6 +422,42 @@
 
   .actionCard {
     max-width: 31rem;
+    border-radius: 1.3rem;
+    padding: 1.25rem;
+  }
+
+  .cardKicker {
+    margin-bottom: 0.5rem;
+    font-size: 0.58rem;
+  }
+
+  .actionCard h2 {
+    font-size: 1.65rem;
+  }
+
+  .cardIntro {
+    margin: 0.55rem 0 1rem;
+    font-size: 0.8rem;
+  }
+
+  .googleButton {
+    min-height: 3rem;
+    font-size: 0.86rem;
+  }
+
+  .promises {
+    gap: 0.4rem;
+    margin-top: 0.95rem;
+    padding-top: 0.85rem;
+  }
+
+  .promises p {
+    font-size: 0.64rem;
+  }
+
+  .promises span {
+    width: 1.2rem;
+    height: 1.2rem;
   }
 
   .footer {
