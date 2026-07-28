@@ -283,19 +283,21 @@
   line-height: 1.5;
 }
 
-.status {
+.authError {
   margin-top: var(--space-3);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-  color: var(--color-ink);
-  background: rgba(233, 185, 73, 0.18);
+  color: #7d2f22;
+  background: rgba(242, 104, 74, 0.12);
   font-size: 0.78rem;
+  text-align: center;
 }
 
-.status span {
+.googleIcon {
+  flex: 0 0 auto;
   margin-right: var(--space-2);
-  color: var(--color-discovery-dark);
-  font-weight: 900;
+  border-radius: 50%;
+  background: white;
 }
 
 .privacyNotice {

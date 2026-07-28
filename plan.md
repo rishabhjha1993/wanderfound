@@ -160,8 +160,8 @@ A traveller already present in a walkable neighbourhood who has 30–90 unplanne
 
 - mobile-first responsive web app;
 - installable PWA where supported;
-- optional guest start with Google sign-in for durable account ownership;
-- secure linking of a guest adventure to the signed-in Google account;
+- Google sign-in required before adventure setup or gameplay;
+- persistent account ownership across refreshes and supported devices;
 - foreground GPS permission;
 - 30- and 60-minute adventure options;
 - four moods: historical, culinary, strange and beautiful;
@@ -194,6 +194,7 @@ A traveller already present in a walkable neighbourhood who has 30–90 unplanne
 - bookings or restaurant ordering;
 - voice conversation;
 - background location tracking;
+- anonymous guest mode;
 - offline mode;
 - multiple languages;
 - multiplayer synchronisation across devices;
@@ -620,18 +621,17 @@ Any unsafe-stage report should flag that candidate for review and temporarily re
 ### Data
 
 - Supabase Postgres;
-- Supabase Auth with Google OAuth;
-- secure guest sessions so a player can begin before signing in;
-- one-way, server-validated linking of a guest adventure to the authenticated account;
+- Supabase Auth with Google OAuth as the only sign-in method;
+- every profile, adventure and progress row owned by a verified `auth.uid()`;
 - Row Level Security;
 - Supabase private Storage for verification photographs;
-- automatic deletion job for expired guest sessions and raw photos.
+- automatic deletion job for expired adventures and raw photos.
 
-Use dynamic rendering where session identity matters and add abuse prevention such as
-Turnstile. RLS must distinguish guest-session access from authenticated account access.
-Google sign-in must use PKCE, validated redirect URLs and secure cookies. A user may
-claim only the guest session proven by the current secure session; changing a URL must
-never transfer ownership. Provide logout, account deletion and expired-auth recovery.
+Use dynamic rendering where session identity matters and add abuse prevention to
+generation, verification and payment routes. RLS must use `auth.uid()` for ownership.
+Google sign-in must use PKCE, validated redirect URLs and secure cookies. Provide
+logout, account deletion and expired-auth recovery. Changing a URL or client payload
+must never transfer ownership.
 
 ### AI
 
@@ -680,8 +680,6 @@ NEXT_PUBLIC_APP_URL=
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 NEXT_PUBLIC_GOOGLE_MAP_ID=
 GOOGLE_MAPS_SERVER_API_KEY=
-GOOGLE_OAUTH_CLIENT_ID=
-GOOGLE_OAUTH_CLIENT_SECRET=
 AI_API_KEY=
 AI_TEXT_MODEL=
 AI_VISION_MODEL=
@@ -706,8 +704,7 @@ Do not commit real values. Provide `.env.example`.
 ### `adventure_sessions`
 
 - `id`
-- `user_id` (nullable until a guest session is linked)
-- `guest_session_id` (nullable after secure account linking)
+- `user_id` (the owning Google-authenticated Supabase user)
 - `status`
 - `start_lat`
 - `start_lng`
@@ -907,8 +904,8 @@ Acceptance:
 - [ ] Display current position on a custom Google Maps style.
 - [ ] Add mist/search-area visual treatment.
 - [ ] Add duration, mood and party setup.
-- [ ] Persist a secure guest or authenticated session.
-- [ ] Add Google sign-in and guest-to-account linking.
+- [ ] Require Google sign-in before setup or gameplay.
+- [ ] Persist and recover the authenticated session securely.
 
 Acceptance:
 
@@ -1256,13 +1253,16 @@ Do not claim the next level before the preceding behaviour exists.
 - Google Places API (New) and Google Routes API selected for Goa POIs and walking routes.
 - Google Places and Routes content displayed on maps must remain on a Google Map in
   accordance with provider policy; provider interfaces remain to limit coupling.
-- Supabase Auth with Google OAuth selected for accounts, with a low-friction guest start
-  and secure guest-to-account adventure linking.
+- Supabase Auth with Google OAuth selected as the only V0 sign-in method. A user must
+  sign in before adventure setup or gameplay; anonymous guest accounts are not created.
 - Supabase retained for session data and private photo storage.
 - Supabase integration uses the current publishable-key model and `@supabase/ssr`
   cookie clients. Server authorization must validate identity with `getClaims()` rather
   than trusting unverified session data. The elevated secret key remains server-only and
   is not required until an administrative server operation is implemented.
+- Google OAuth credentials live in Supabase provider settings rather than application
+  environment variables. Wanderfound receives a Supabase session after PKCE callback;
+  all product rows use that verified user's `auth.uid()` from creation onward.
 
 ### 2026-07-27
 
@@ -1482,26 +1482,23 @@ Done when:
 - a user can complete setup one-handed;
 - selections survive a refresh within the session.
 
-#### WF-105 — Guest session and Google account
+#### WF-105 — Google account and session lifecycle
 
 Depends on: WF-104
 
-- [ ] Define a secure guest-session identifier.
-- [ ] Persist only the minimum local session data before Supabase is connected.
-- [ ] Add expiry.
-- [ ] Add restart and discard-session actions.
-- [ ] Prevent one browser session from reading another session by changing a URL.
+- [ ] Require authentication before setup and adventure routes.
 - [ ] Configure Supabase Auth with Google OAuth and PKCE.
-- [ ] Add sign-in, callback, logout and expired-auth recovery.
-- [ ] Link a guest adventure to a Google account only after server-side ownership proof.
-- [ ] Add guest, authenticated, linking and session-lifecycle tests.
+- [ ] Add sign-in, callback, logout, account deletion and expired-auth recovery.
+- [ ] Redirect signed-out protected-route requests to sign-in.
+- [ ] Redirect signed-in sign-in requests back to the adventure flow.
+- [ ] Add authenticated, signed-out and session-lifecycle tests.
 
 Done when:
 
-- refresh preserves setup;
+- refresh preserves the signed-in session and setup;
 - expired or malformed sessions recover safely;
-- Google sign-in preserves the active adventure;
-- changing a URL or client payload cannot claim another guest adventure.
+- a returning Google user can resume their active adventure;
+- changing a URL or client payload cannot claim another user's adventure.
 
 ### Epic 2 — Candidate discovery and playability
 
@@ -2428,7 +2425,7 @@ V0 is complete only when all of the following are true:
 > previous task. Implement WF-100 through WF-105 only. Use mocked providers where
 > external credentials are unavailable. Run tests and update the plan. Stop after the
 > user can grant foreground location, see the branded map, choose an adventure,
-> safely resume a guest session and optionally link it to a Google account.
+> sign in with Google and safely resume their authenticated adventure.
 
 ### Subsequent implementation rule
 
