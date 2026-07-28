@@ -1239,10 +1239,13 @@ Do not claim the next level before the preceding behaviour exists.
 ### 2026-07-28
 
 - The workspace was a new product plan with no existing application code; Milestone 0
-  created a Next.js-compatible TypeScript App Router application on the Sites/vinext
-  runtime, preserving `plan.md` as the product source of truth.
-- Sites private hosting selected for the first HTTPS field-test preview; the provider
-  boundary keeps a later move to Vercel or another compatible Node host possible.
+  created a Next.js TypeScript App Router application, preserving `plan.md` as the
+  product source of truth.
+- Sites private hosting served only as the first HTTPS scaffold preview. Vercel was then
+  selected as the primary preview and production host because it runs the chosen Next.js
+  architecture natively and simplifies Supabase SSR, Google OAuth callbacks and server
+  routes. Goa testers will use the public Vercel URL or `wanderfound.app`, not a ChatGPT
+  Sites URL.
 - Node.js 22.14 and npm were pinned for reproducible local and CI builds.
 - Exact pedestrian paths and turn guidance are now required for every active stage.
 - Navigation is not treated as the puzzle: Wanderfound guides the player to a small,

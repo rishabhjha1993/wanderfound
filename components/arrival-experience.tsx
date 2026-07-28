@@ -29,16 +29,9 @@ export function ArrivalExperience() {
           </span>
           Wanderfound
         </Link>
-        <span className={styles.edition}>Field edition · Goa</span>
       </header>
 
       <section className={styles.hero} aria-labelledby="arrival-title">
-        <div className={styles.eyebrow}>
-          <span className={styles.coordinates}>15.49° N · 73.83° E</span>
-          <span className={styles.rule} aria-hidden="true" />
-          <span>Adventure 001</span>
-        </div>
-
         <h1 id="arrival-title">The world is hiding in plain sight.</h1>
         <p className={styles.intro}>
           Turn the streets around you into a walkable mystery—made in the
