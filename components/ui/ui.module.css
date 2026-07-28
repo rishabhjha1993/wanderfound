@@ -1,0 +1,131 @@
+.button {
+  min-height: 3.5rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 0.9rem 1.35rem;
+  font-family: var(--font-label);
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out);
+}
+
+.button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primary {
+  color: var(--color-white);
+  background: var(--color-discovery);
+  box-shadow: var(--shadow-button);
+}
+
+.primary:hover {
+  background: var(--color-discovery-dark);
+  transform: translateY(-1px);
+}
+
+.quiet {
+  color: var(--color-ink);
+  background: rgba(255, 253, 248, 0.7);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.iconButton {
+  display: inline-grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  color: var(--color-ink);
+  background: var(--color-white);
+  cursor: pointer;
+}
+
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 253, 248, 0.82);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(16px);
+}
+
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  color: var(--color-ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.info {
+  background: rgba(255, 253, 248, 0.6);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+
+.safety {
+  background: rgba(233, 185, 73, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(173, 123, 17, 0.18);
+}
+
+.sheet {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-5);
+  background: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+.sheetHandle {
+  display: block;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0 auto var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-line);
+}
+
+.sheet h2 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+}
+
+.loading {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+}
+
+.loadingMark {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--color-line);
+  border-top-color: var(--color-discovery);
+  border-radius: 50%;
+  animation: loading-spin 900ms linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

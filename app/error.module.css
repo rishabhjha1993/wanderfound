@@ -1,0 +1,45 @@
+.page {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  padding: var(--space-6);
+  text-align: center;
+  background: var(--color-paper);
+}
+
+.compass {
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto var(--space-5);
+  place-items: center;
+  border: 1px solid var(--color-ink);
+  border-radius: 50%;
+  color: var(--color-discovery-dark);
+  font-family: var(--font-display);
+  font-size: 2rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-discovery-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.page h1 {
+  max-width: 13ch;
+  margin: var(--space-3) auto;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 10vw, 4.5rem);
+  font-weight: 500;
+  line-height: 0.98;
+}
+
+.page p:not(.eyebrow) {
+  max-width: 34rem;
+  margin: 0 auto var(--space-6);
+  color: var(--color-ink-soft);
+}
