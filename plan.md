@@ -890,7 +890,7 @@ Possible later membership:
 - [x] Add TypeScript, linting, formatting and test runner.
 - [x] Add `.env.example`.
 - [x] Add basic CI checks.
-- [x] Deploy the foundation over HTTPS.
+- [ ] Deploy the foundation over HTTPS.
 - [x] Establish design tokens and mobile shell.
 - [x] Add privacy, safety and provider-abstraction placeholders.
 
@@ -1379,7 +1379,7 @@ Done when:
 Depends on: WF-002, WF-003
 
 - [x] Configure preview deployment.
-- [x] Confirm HTTPS.
+- [ ] Confirm HTTPS.
 - [x] Add a `/health` endpoint without secret values.
 - [x] Add structured server logging.
 - [x] Add an application version/build identifier.
