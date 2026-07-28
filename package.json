@@ -20,6 +20,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.9",
     "next": "16.2.12",
     "react": "19.2.6",
     "react-dom": "19.2.6"
@@ -40,6 +42,10 @@
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "postcss": "8.5.24",
+    "sharp": "0.35.3"
   },
   "type": "module"
 }

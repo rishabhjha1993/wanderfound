@@ -687,7 +687,7 @@ AI_TEXT_MODEL=
 AI_VISION_MODEL=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
@@ -1259,6 +1259,10 @@ Do not claim the next level before the preceding behaviour exists.
 - Supabase Auth with Google OAuth selected for accounts, with a low-friction guest start
   and secure guest-to-account adventure linking.
 - Supabase retained for session data and private photo storage.
+- Supabase integration uses the current publishable-key model and `@supabase/ssr`
+  cookie clients. Server authorization must validate identity with `getClaims()` rather
+  than trusting unverified session data. The elevated secret key remains server-only and
+  is not required until an administrative server operation is implemented.
 
 ### 2026-07-27
 
