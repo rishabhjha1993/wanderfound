@@ -10,8 +10,16 @@
  * It deliberately does not call the AI curator: this audits the factual pool,
  * not the selection taste, and costs nothing in model tokens.
  *
+ * Defaults to Fontainhas, Panjim alone — four calls, one per mood. The broader
+ * evidence about how this engine behaves in different kinds of place is meant
+ * to come from real sessions run at the founder's actual location, not from a
+ * guessed coordinate list. The wider list below stays available for the moment
+ * a specific question needs it.
+ *
  *   npm run audit:candidates
- *   npm run audit:candidates -- --locations=panjim,anjuna --moods=historical
+ *   npm run audit:candidates -- --all
+ *   npm run audit:candidates -- --locations=anjuna,rural-maharashtra
+ *   npm run audit:candidates -- --moods=historical
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -164,6 +172,7 @@ const LOCATIONS: AuditLocation[] = [
   },
 ];
 
+const DEFAULT_LOCATION_SLUGS = ["panjim-fontainhas"];
 const DURATION: AdventureDuration = 60;
 const REQUEST_SPACING_MS = 350;
 const VIABILITY_BAR = 8;
@@ -198,10 +207,13 @@ async function main() {
     return;
   }
 
-  const locations = LOCATIONS.filter(
-    (location) =>
-      options.locations.length === 0 ||
-      options.locations.includes(location.slug),
+  const requestedSlugs = options.all
+    ? LOCATIONS.map((location) => location.slug)
+    : options.locations.length > 0
+      ? options.locations
+      : DEFAULT_LOCATION_SLUGS;
+  const locations = LOCATIONS.filter((location) =>
+    requestedSlugs.includes(location.slug),
   );
   const moods = ADVENTURE_MOODS.filter(
     (mood) => options.moods.length === 0 || options.moods.includes(mood),
@@ -215,7 +227,9 @@ async function main() {
 
   const totalCalls = locations.length * moods.length;
   console.info(
-    `Auditing ${locations.length} locations x ${moods.length} moods = ${totalCalls} Places calls.`,
+    `Auditing ${totalCalls} Places calls: ${locations
+      .map((location) => location.slug)
+      .join(", ")} x ${moods.join(", ")}.`,
   );
 
   const provider = new GooglePlacesProvider();
@@ -440,6 +454,7 @@ function parseArgs(argv: string[]) {
       .filter(Boolean) ?? [];
 
   return {
+    all: argv.includes("--all"),
     locations: read("locations"),
     moods: read("moods") as AdventureMood[],
   };

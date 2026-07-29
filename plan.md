@@ -1287,9 +1287,14 @@ of provider quota, produced the following corrections.
 - WF-206, the playability debug view, moves from the end of Block 3 to immediately
   after the first filter ticket. Every ticket after it is diagnosed through it.
 - WF-201a is inserted to activate live credentials, rate-limit the discovery route
-  and audit real candidate quality across contrasting coordinates before scoring and
-  routing are built on assumptions about the candidate pool. The mood-to-category
-  mapping may only be corrected from observed provider output.
+  and audit real candidate quality before scoring and routing are built on
+  assumptions about the candidate pool. The mood-to-category mapping may only be
+  corrected from observed provider output.
+- The audit defaults to one location, Fontainhas in Panjim, rather than a guessed
+  list of fifteen. Evidence about how the engine behaves across different kinds of
+  place should come from real sessions run where the founder actually is, which
+  costs nothing extra and reflects genuine use. The wider coordinate list remains in
+  the script behind `--all` for when a specific question needs it.
 - WF-207 introduces server-authoritative session records at the end of Block 3. The
   database schema exists but no application code writes to it, and all state lives in
   browser session storage. Progress persistence and a paid unlock cannot trust client
@@ -1684,14 +1689,15 @@ wrong, and every ticket built above them inherits that error.
 - [ ] Confirm the configured text model resolves on the project before relying on it.
 - [ ] Add a per-user rate limit to the discovery route.
 - [ ] Record which curator produced each selection so silent AI fallback is visible.
-- [ ] Run a scripted audit across contrasting coordinates and all four moods.
+- [ ] Run the audit at Fontainhas, Panjim across all four moods.
 - [ ] Review the report and correct the mood mapping from real observations only.
+- [ ] Gather wider evidence from real sessions at the founder's own location.
 
 Done when:
 
 - a live urban location returns normalised candidates, satisfying WF-201's
   outstanding acceptance criterion;
-- the founder has read real candidate output from dense, sparse and coastal areas;
+- the founder has read real candidate output rather than fixture output;
 - a signed-in client cannot exhaust provider quota in a loop.
 
 #### WF-202a — Candidate-level hard filters
