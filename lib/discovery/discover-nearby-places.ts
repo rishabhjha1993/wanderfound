@@ -105,14 +105,26 @@ export async function discoverNearbyPlaces({
     uniqueCandidates.map((candidate) => [candidate.providerPlaceId, candidate]),
   );
 
+  const places = selectedIds.flatMap((placeId) => {
+    const place = byId.get(placeId);
+    return place ? [place] : [];
+  });
+
+  log("info", "places_discovery_completed", {
+    selection_method: selectionMethod,
+    ai_curator_configured: Boolean(aiCurator),
+    candidate_count: uniqueCandidates.length,
+    selected_count: places.length,
+    radius_meters: policy.radiusMeters,
+    mood: input.mood,
+    location_cell: coarseLocationCell(input.origin),
+  });
+
   return {
     radiusMeters: policy.radiusMeters,
     candidateCount: uniqueCandidates.length,
     selectionMethod,
-    places: selectedIds.flatMap((placeId) => {
-      const place = byId.get(placeId);
-      return place ? [place] : [];
-    }),
+    places,
   };
 }
 
