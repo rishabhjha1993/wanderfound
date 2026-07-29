@@ -59,9 +59,40 @@ describe("LocationPermissionExperience", () => {
         name: "We found your trailhead.",
       }),
     ).toBeVisible();
-    expect(screen.getByText("Signal: strong")).toBeVisible();
+    expect(screen.getByText("Signal: strong · about 18 m")).toBeVisible();
     expect(screen.queryByText("15.4989")).not.toBeInTheDocument();
     expect(screen.queryByText("73.8278")).not.toBeInTheDocument();
+  });
+
+  it("refuses to begin from an unusably broad location", async () => {
+    const user = userEvent.setup();
+    render(<LocationPermissionExperience />);
+
+    await user.click(screen.getByRole("button", { name: "Use my location" }));
+
+    const success = getCurrentPosition.mock.calls[0][0];
+    success({
+      coords: {
+        accuracy: 600,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        latitude: 15.4989,
+        longitude: 73.8278,
+        speed: null,
+        toJSON: () => ({}),
+      },
+      timestamp: Date.now(),
+      toJSON: () => ({}),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "That area is too broad to start safely.",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("Current accuracy: about 600 m")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Find me again" })).toBeVisible();
   });
 
   it("distinguishes permission denial and allows retry", async () => {
