@@ -1257,6 +1257,11 @@ Do not claim the next level before the preceding behaviour exists.
   sources provide the factual allow-list; the model may arrange approved candidates
   and write clues but may never invent a destination, coordinate, opening status or
   local fact. Setup itself makes no model call.
+- Provider boundaries use strict runtime schemas, typed retryable/non-retryable
+  failures and attribution records that carry source, notice and storage-policy
+  metadata. Deterministic mock providers use clearly fictional Panaji-area fixtures
+  so discovery, routing and enrichment can be developed without paid calls or the
+  risk of mock content appearing factual.
 
 ### 2026-07-28
 
@@ -1533,11 +1538,11 @@ Done when:
 
 Depends on: WF-002
 
-- [ ] Implement the `PlaceCandidate`, route and grounded-fact schemas.
-- [ ] Implement `PlacesProvider`, `RoutingProvider` and `KnowledgeProvider` contracts.
-- [ ] Add provider-specific error types.
-- [ ] Add source attribution and licensing metadata.
-- [ ] Create deterministic mock providers and fixtures.
+- [x] Implement the `PlaceCandidate`, route and grounded-fact schemas.
+- [x] Implement `PlacesProvider`, `RoutingProvider` and `KnowledgeProvider` contracts.
+- [x] Add provider-specific error types.
+- [x] Add source attribution and licensing metadata.
+- [x] Create deterministic mock providers and fixtures.
 
 Done when:
 
