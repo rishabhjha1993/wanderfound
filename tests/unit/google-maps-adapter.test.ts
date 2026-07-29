@@ -54,6 +54,7 @@ beforeEach(() => {
     Circle: FakeCircle,
     Map: FakeMap,
     Polyline: FakePolyline,
+    RenderingType: { RASTER: "RASTER" },
   });
 });
 
@@ -73,7 +74,6 @@ describe("Google Maps adapter", () => {
     expect(setOptions).toHaveBeenCalledWith(
       expect.objectContaining({
         authReferrerPolicy: "origin",
-        mapIds: ["8e0a97af9386fef0"],
         region: "IN",
         v: "quarterly",
       }),
@@ -83,14 +83,16 @@ describe("Google Maps adapter", () => {
         clickableIcons: false,
         disableDefaultUI: true,
         gestureHandling: "cooperative",
-        mapId: "8e0a97af9386fef0",
+        renderingType: "RASTER",
+        styles: expect.any(Array),
       }),
     );
+    expect(mapInstances[0].options).not.toHaveProperty("mapId");
     expect(circleInstances).toHaveLength(2);
     expect(circleInstances[0].options).toEqual(
       expect.objectContaining({
         radius: 42,
-        fillOpacity: 0.14,
+        fillOpacity: 0.1,
       }),
     );
 
@@ -112,14 +114,14 @@ describe("Google Maps adapter", () => {
     });
     expect(circleInstances[2].options).toEqual(
       expect.objectContaining({
-        radius: 56.25,
-        fillColor: "#e9b949",
+        radius: 74.25,
+        fillColor: "#f4b85f",
       }),
     );
-    expect(circleInstances[3].options).toEqual(
+    expect(circleInstances[4].options).toEqual(
       expect.objectContaining({
         radius: 45,
-        fillColor: "#f2684a",
+        fillColor: "#f06449",
       }),
     );
 
@@ -130,24 +132,25 @@ describe("Google Maps adapter", () => {
       ],
       state: "active",
     });
-    expect(polylineInstances[0].options).toEqual(
+    expect(polylineInstances).toHaveLength(2);
+    expect(polylineInstances[1].options).toEqual(
       expect.objectContaining({
         path: [
           { lat: 15.49, lng: 73.82 },
           { lat: 15.5, lng: 73.83 },
         ],
-        strokeColor: "#153d35",
-        strokeOpacity: 0.92,
+        strokeColor: "#ffe6a8",
+        strokeOpacity: 0.96,
       }),
     );
 
     handle.setDiscoveredStages([
       { id: "stage-1", latitude: 15.495, longitude: 73.825 },
     ]);
-    expect(circleInstances[4].options).toEqual(
+    expect(circleInstances[6].options).toEqual(
       expect.objectContaining({
         center: { lat: 15.495, lng: 73.825 },
-        fillColor: "#e9b949",
+        fillColor: "#f7ca68",
       }),
     );
 
@@ -163,6 +166,9 @@ describe("Google Maps adapter", () => {
     expect(circleInstances[2].setMap).toHaveBeenCalledWith(null);
     expect(circleInstances[3].setMap).toHaveBeenCalledWith(null);
     expect(circleInstances[4].setMap).toHaveBeenCalledWith(null);
+    expect(circleInstances[5].setMap).toHaveBeenCalledWith(null);
+    expect(circleInstances[6].setMap).toHaveBeenCalledWith(null);
     expect(polylineInstances[0].setMap).toHaveBeenCalledWith(null);
+    expect(polylineInstances[1].setMap).toHaveBeenCalledWith(null);
   });
 });
