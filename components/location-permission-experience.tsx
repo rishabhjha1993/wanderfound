@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PlayerLocationMap } from "@/components/player-location-map";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import {
   isUsableLocationQuality,
   requestForegroundLocation,
+  type ForegroundLocation,
   type LocationAccuracyQuality,
   type LocationRequestFailure,
 } from "@/lib/location/request-foreground-location";
@@ -70,6 +72,7 @@ export function LocationPermissionExperience() {
   const [accuracyM, setAccuracyM] = useState<number | null>(null);
   const [accuracyQuality, setAccuracyQuality] =
     useState<LocationAccuracyQuality | null>(null);
+  const [location, setLocation] = useState<ForegroundLocation | null>(null);
   const promptTracked = useRef(false);
 
   useEffect(() => {
@@ -90,6 +93,7 @@ export function LocationPermissionExperience() {
     if (result.ok) {
       setAccuracyM(result.location.accuracyM);
       setAccuracyQuality(result.quality);
+      setLocation(result.location);
       trackProductEvent("location_granted", {
         accuracy: result.quality,
       });
@@ -144,7 +148,9 @@ export function LocationPermissionExperience() {
         <span className={styles.step}>Trailhead · 1 of 3</span>
       </header>
 
-      <Card className={styles.card}>
+      <Card
+        className={`${styles.card} ${view === "granted" ? styles.mapCard : ""}`}
+      >
         {view === "education" ? (
           <Education onRequest={requestLocation} onDefer={deferLocation} />
         ) : null}
@@ -154,6 +160,7 @@ export function LocationPermissionExperience() {
         {view === "granted" ? (
           <Granted
             accuracyM={accuracyM}
+            location={location}
             quality={accuracyQuality}
             onRefresh={requestLocation}
           />
@@ -245,34 +252,47 @@ function Requesting() {
 
 function Granted({
   accuracyM,
+  location,
   quality,
   onRefresh,
 }: {
   accuracyM: number | null;
+  location: ForegroundLocation | null;
   quality: LocationAccuracyQuality | null;
   onRefresh: () => void;
 }) {
   return (
-    <div className={styles.state} aria-live="polite">
-      <span className={styles.successMark} aria-hidden="true">
-        ✓
-      </span>
-      <p className={styles.eyebrow}>Location ready</p>
-      <h1>We found your trailhead.</h1>
-      <p className={styles.description}>
-        Your position is ready for the map. Adventure choices come next.
+    <div className={`${styles.state} ${styles.mapState}`} aria-live="polite">
+      <div className={styles.mapIntroduction}>
+        <div>
+          <p className={styles.eyebrow}>Location ready</p>
+          <h1>Here is your trailhead.</h1>
+          <p className={styles.description}>
+            The coral halo shows the area your phone is confident you’re
+            inside—not an exact breadcrumb trail.
+          </p>
+        </div>
+        <div className={styles.signalActions}>
+          <p className={styles.accuracy}>
+            Signal: {quality ?? "received"}
+            {accuracyM === null ? "" : ` · about ${Math.round(accuracyM)} m`}
+          </p>
+          <button
+            className={styles.secondaryAction}
+            type="button"
+            onClick={onRefresh}
+          >
+            Refresh location
+          </button>
+        </div>
+      </div>
+
+      {location ? <PlayerLocationMap location={location} /> : null}
+
+      <p className={styles.mapFootnote}>
+        Google’s map attribution stays visible inside the map. Wanderfound does
+        not add your precise coordinates to product analytics.
       </p>
-      <p className={styles.accuracy}>
-        Signal: {quality ?? "received"}
-        {accuracyM === null ? "" : ` · about ${Math.round(accuracyM)} m`}
-      </p>
-      <button
-        className={styles.secondaryAction}
-        type="button"
-        onClick={onRefresh}
-      >
-        Refresh location
-      </button>
     </div>
   );
 }
