@@ -1273,6 +1273,15 @@ Do not claim the next level before the preceding behaviour exists.
   metadata. Deterministic mock providers use clearly fictional coordinate fixtures so
   discovery, routing and enrichment can be developed without paid calls or the risk
   of mock content appearing factual.
+- Nearby discovery uses Google Places API (New) as the factual scout and
+  `gpt-5.6-sol` at medium reasoning as an optional curator. Sol receives only
+  provider-approved IDs and descriptive metadata—not player coordinates—and its
+  structured output is intersected with Google's allow-list before use. A deterministic
+  curator remains available when the AI key or AI service is unavailable.
+- Initial search radii are 800 m for a 30-minute adventure and 1,500 m for a
+  60-minute adventure. Google responses are capped at 20, time out after six seconds,
+  and are deduplicated by provider identity, normalised name and nearby name similarity.
+  Provider failures log only a coarse roughly 0.1-degree location cell.
 
 ### 2026-07-28
 
@@ -1566,18 +1575,22 @@ Done when:
 
 Depends on: WF-200
 
-- [ ] Translate duration into an initial search radius.
-- [ ] Map Wanderfound categories to Google Places types.
-- [ ] Retrieve candidates server-side.
-- [ ] Normalise provider responses.
-- [ ] Deduplicate near-identical candidates.
-- [ ] Enforce provider result and latency limits.
-- [ ] Log provider failure without exposing keys or precise user location unnecessarily.
+- [x] Translate duration into an initial search radius.
+- [x] Map Wanderfound categories to Google Places types.
+- [x] Retrieve candidates server-side.
+- [x] Normalise provider responses.
+- [x] Deduplicate near-identical candidates.
+- [x] Enforce provider result and latency limits.
+- [x] Log provider failure without exposing keys or precise user location unnecessarily.
 
 Done when:
 
 - fixtures and at least one live urban location return normalised candidates;
 - duplicate branches of the same venue do not dominate selection.
+
+Implementation is complete against deterministic and provider-shaped fixtures. The
+live urban acceptance check remains pending until the server-only Google Places key is
+configured in local development and Vercel.
 
 #### WF-202 — Deterministic hard filters
 

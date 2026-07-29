@@ -11,6 +11,7 @@ import {
   isCompleteAdventureSetup,
   storeAdventureSetupDraft,
 } from "@/lib/adventure/setup-session";
+import type { ForegroundLocation } from "@/lib/location/request-foreground-location";
 import styles from "./adventure-setup.module.css";
 
 const DURATION_OPTIONS: Array<{
@@ -226,12 +227,53 @@ export function AdventureSetup({
 }
 
 export function AdventureSetupComplete({
+  location,
   setup,
   onEdit,
 }: {
+  location: ForegroundLocation;
   setup: CompleteAdventureSetup;
   onEdit: () => void;
 }) {
+  const [discovery, setDiscovery] = useState<DiscoveryState>({
+    status: "idle",
+  });
+
+  async function scoutArea() {
+    setDiscovery({ status: "loading" });
+
+    try {
+      const response = await fetch("/api/places/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origin: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          ...setup,
+          languageCode: browserLanguageCode(),
+        }),
+      });
+      const payload = (await response.json()) as DiscoveryResponse;
+
+      if (!response.ok) {
+        setDiscovery({
+          status: "error",
+          message: payload.error ?? "We could not scout this area just now.",
+        });
+        return;
+      }
+
+      setDiscovery({ status: "ready", result: payload });
+    } catch {
+      setDiscovery({
+        status: "error",
+        message: "The scout lost its signal. Please try again.",
+      });
+    }
+  }
+
   return (
     <div className={styles.complete} aria-live="polite">
       <span className={styles.compassMark} aria-hidden="true">
@@ -265,17 +307,124 @@ export function AdventureSetupComplete({
         <div>
           <strong>The next piece: the adventure engine</strong>
           <p>
-            Your choices are safely remembered in this browser session. No
-            mystery has been generated or charged yet.
+            Google scouts real nearby places. Sol then chooses a varied set
+            without being allowed to invent any new locations.
           </p>
         </div>
       </div>
+
+      {discovery.status === "ready" ? (
+        <DiscoveryResult result={discovery.result} />
+      ) : (
+        <Button
+          aria-busy={discovery.status === "loading"}
+          disabled={discovery.status === "loading"}
+          fullWidth
+          onClick={scoutArea}
+        >
+          {discovery.status === "loading"
+            ? "Scouting the streets…"
+            : "Discover what’s around me"}
+        </Button>
+      )}
+
+      {discovery.status === "error" ? (
+        <p className={styles.discoveryError} role="alert">
+          {discovery.message}
+        </p>
+      ) : null}
 
       <Button fullWidth onClick={onEdit} variant="quiet">
         Change my choices
       </Button>
     </div>
   );
+}
+
+type DiscoveredPlace = {
+  providerPlaceId: string;
+  name: string;
+  primaryCategory: string;
+  address?: string;
+  openingStatus: "open" | "closed" | "unknown";
+  googleMapsUrl?: string;
+};
+
+type DiscoveryResponse = {
+  error?: string;
+  radiusMeters: number;
+  candidateCount: number;
+  selectionMethod: "sol" | "deterministic";
+  places: DiscoveredPlace[];
+  attribution: string;
+};
+
+type DiscoveryState =
+  | { status: "idle" | "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; result: DiscoveryResponse };
+
+function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
+  return (
+    <section className={styles.discoveryResult}>
+      <div className={styles.discoveryHeading}>
+        <div>
+          <p className={styles.eyebrow}>The scout returned</p>
+          <h2>
+            {result.places.length > 0
+              ? `${result.places.length} promising story points`
+              : "This patch needs a wider search"}
+          </h2>
+        </div>
+        <span>
+          {result.selectionMethod === "sol"
+            ? "Curated by Sol"
+            : "Smart fallback"}
+        </span>
+      </div>
+
+      {result.places.length > 0 ? (
+        <ol className={styles.placeList}>
+          {result.places.map((place, index) => (
+            <li key={place.providerPlaceId}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <strong>{place.name}</strong>
+                <p>
+                  {humaniseCategory(place.primaryCategory)}
+                  {place.address ? ` · ${place.address}` : ""}
+                </p>
+              </div>
+              {place.googleMapsUrl ? (
+                <a href={place.googleMapsUrl} rel="noreferrer" target="_blank">
+                  Map
+                </a>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className={styles.emptyDiscovery}>
+          Google returned no suitable candidates inside this first walking
+          radius. A later step will safely widen the circle once.
+        </p>
+      )}
+
+      <p className={styles.googleAttribution}>
+        Places supplied by {result.attribution} · searched within{" "}
+        {(result.radiusMeters / 1_000).toFixed(1)} km
+      </p>
+    </section>
+  );
+}
+
+function browserLanguageCode() {
+  const language = navigator.language.split("-")[0]?.toLocaleLowerCase();
+  return /^[a-z]{2}$/.test(language) ? language : "en";
+}
+
+function humaniseCategory(category: string) {
+  return category.replaceAll("_", " ");
 }
 
 function Choice({

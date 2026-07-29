@@ -255,8 +255,11 @@ export function LocationPermissionExperience() {
           />
         ) : null}
 
-        {view === "setup_complete" && isCompleteAdventureSetup(setupDraft) ? (
+        {view === "setup_complete" &&
+        location &&
+        isCompleteAdventureSetup(setupDraft) ? (
           <AdventureSetupComplete
+            location={location}
             setup={setupDraft}
             onEdit={() => setView("setup")}
           />
