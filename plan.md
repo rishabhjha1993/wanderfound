@@ -1246,6 +1246,9 @@ Do not claim the next level before the preceding behaviour exists.
 - The player appears as a small dot inside the browser-provided accuracy radius.
   Default map controls and clickable place icons are disabled, while Google attribution
   remains visible and touch gestures use cooperative handling.
+- Wanderfound map styling is source-controlled as cloud-style JSON and associated with
+  the JavaScript Map ID. The front-end map boundary owns reusable search-area, route
+  and discovered-stage layers plus a reduced-motion, high-contrast-aware mist treatment.
 
 ### 2026-07-28
 
@@ -1469,13 +1472,13 @@ Done when:
 
 Depends on: WF-102
 
-- [ ] Apply a custom base-map style.
-- [ ] De-emphasise irrelevant labels and road clutter.
-- [ ] Add the mist/fog overlay.
-- [ ] Add a reusable glowing search-area layer.
-- [ ] Add route and discovered-stage layers.
-- [ ] Respect reduced motion.
-- [ ] Test readability in simulated bright light.
+- [x] Apply a custom base-map style.
+- [x] De-emphasise irrelevant labels and road clutter.
+- [x] Add the mist/fog overlay.
+- [x] Add a reusable glowing search-area layer.
+- [x] Add route and discovered-stage layers.
+- [x] Respect reduced motion.
+- [x] Test readability in simulated bright light.
 
 Done when:
 
