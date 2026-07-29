@@ -141,7 +141,6 @@ function configureLoader(config: GoogleMapsBrowserConfig) {
   const options: APIOptions = {
     authReferrerPolicy: "origin",
     key: config.apiKey,
-    region: "IN",
     v: "quarterly",
   };
 

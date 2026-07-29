@@ -102,7 +102,7 @@ export const MOCK_PLACE_CANDIDATES: PlaceCandidate[] = FIXTURE_DEFINITIONS.map(
       latitude: fixture.latitude,
       longitude: fixture.longitude,
     },
-    address: "Deterministic fixture area, Panaji, Goa",
+    address: "Deterministic fixture zone",
     openingStatus: "open",
     publicAccess: "yes",
     indoorOutdoor: "outdoor",

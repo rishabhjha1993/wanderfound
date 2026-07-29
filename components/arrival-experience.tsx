@@ -52,7 +52,7 @@ export function ArrivalExperience() {
           </span>
           Wanderfound
         </Link>
-        <span className={styles.headerNote}>Walking mysteries in Goa</span>
+        <span className={styles.headerNote}>Walking mysteries around you</span>
       </header>
 
       <div className={styles.arrival}>

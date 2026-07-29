@@ -6,6 +6,8 @@
 
 Status: pre-alpha  
 Primary testing ground: Goa  
+Geographic product scope: worldwide from the first real-data build
+
 Initial platform: mobile web/PWA  
 Primary market: travellers; curious locals are the second market
 
@@ -167,6 +169,7 @@ A traveller already present in a walkable neighbourhood who has 30–90 unplanne
 - four moods: historical, culinary, strange and beautiful;
 - solo, couple/friends and family party selection;
 - automatic nearby-place retrieval;
+- coordinate-driven discovery worldwide with no city allow-list;
 - five-stage grounded mystery;
 - exact pedestrian path and turn guidance displayed on a beautiful map;
 - automatic rerouting when the player leaves the path;
@@ -926,9 +929,10 @@ Acceptance:
 
 Acceptance:
 
-- three contrasting test locations either produce five plausible stages or a truthful refusal;
+- contrasting test locations across multiple cities and countries either produce five
+  plausible stages or a truthful refusal;
 - route duration fits the selected duration;
-- no manually selected Goa list is required.
+- no manually selected city or country list is required.
 
 ### Milestone 3 — Grounded AI mystery
 
@@ -1029,7 +1033,9 @@ Acceptance:
 
 ## 16. Goa field plan
 
-Goa is both the first serious product laboratory and the first distribution experiment.
+Goa is the first serious product laboratory and distribution experiment, not a
+geographic product boundary. The same production engine must accept a player's
+coordinates anywhere Google Places and Routes return sufficient usable data.
 
 ### Phase A — Founder self-testing
 
@@ -1257,11 +1263,16 @@ Do not claim the next level before the preceding behaviour exists.
   sources provide the factual allow-list; the model may arrange approved candidates
   and write clues but may never invent a destination, coordinate, opening status or
   local fact. Setup itself makes no model call.
+- Geographic discovery is worldwide from the first live provider adapter. The player's
+  coordinates define the search centre; there is no Goa boundary, supported-city list
+  or country eligibility check. Language and region values may format or bias provider
+  results but may never determine whether a location is allowed. Sparse or unsupported
+  areas receive a truthful refusal.
 - Provider boundaries use strict runtime schemas, typed retryable/non-retryable
   failures and attribution records that carry source, notice and storage-policy
-  metadata. Deterministic mock providers use clearly fictional Panaji-area fixtures
-  so discovery, routing and enrichment can be developed without paid calls or the
-  risk of mock content appearing factual.
+  metadata. Deterministic mock providers use clearly fictional coordinate fixtures so
+  discovery, routing and enrichment can be developed without paid calls or the risk
+  of mock content appearing factual.
 
 ### 2026-07-28
 
@@ -1271,7 +1282,7 @@ Do not claim the next level before the preceding behaviour exists.
 - Sites private hosting served only as the first HTTPS scaffold preview. Vercel was then
   selected as the primary preview and production host because it runs the chosen Next.js
   architecture natively and simplifies Supabase SSR, Google OAuth callbacks and server
-  routes. Goa testers will use the public Vercel URL or `wanderfound.app`, not a ChatGPT
+  routes. Field testers will use the public Vercel URL or `wanderfound.app`, not a ChatGPT
   Sites URL.
 - Node.js 22.14 and npm were pinned for reproducible local and CI builds.
 - Exact pedestrian paths and turn guidance are now required for every active stage.
@@ -1280,7 +1291,8 @@ Do not claim the next level before the preceding behaviour exists.
 - Rerouting is required when the player meaningfully leaves the path.
 - Google Maps JavaScript API selected for the V0 visual map, using custom styling and
   overlays so the experience does not resemble a default navigation product.
-- Google Places API (New) and Google Routes API selected for Goa POIs and walking routes.
+- Google Places API (New) and Google Routes API selected for worldwide nearby places
+  and walking routes wherever provider coverage is sufficient.
 - Google Places and Routes content displayed on maps must remain on a Google Map in
   accordance with provider policy; provider interfaces remain to limit coupling.
 - Supabase Auth with Google OAuth selected as the only V0 sign-in method. A user must
@@ -1301,7 +1313,8 @@ Do not claim the next level before the preceding behaviour exists.
 - Working name selected: Wanderfound.
 - Mobile PWA chosen over native app for first field test.
 - Automatic generation retained as the central hypothesis.
-- Goa chosen as first serious product and distribution laboratory.
+- Goa chosen as the first serious product and distribution laboratory, while the
+  production discovery engine remains geographically universal.
 - First two stages free; remaining three cost ₹149.
 - Subscription deferred until repeat demand exists.
 - Public, visual discoveries prioritised; culinary stages constrained.
