@@ -8,6 +8,8 @@ Status: pre-alpha
 Primary testing ground: Goa  
 Geographic product scope: worldwide from the first real-data build
 
+Quick implementation snapshot: [`progress.md`](./progress.md)
+
 Initial platform: mobile web/PWA  
 Primary market: travellers; curious locals are the second market
 
@@ -29,6 +31,7 @@ When working from this plan:
 8. At the end of each milestone:
    - run relevant tests and checks;
    - update the milestone checklist in this file;
+   - update the quick status and next build order in `progress.md`;
    - document material decisions under `Decision log`;
    - report anything that remains unsafe or simulated.
 9. Ask for API credentials only when the next milestone genuinely requires them.
@@ -904,11 +907,11 @@ Acceptance:
 
 - [x] Explain and request foreground location.
 - [x] Handle denied, unavailable and imprecise states.
-- [ ] Display current position on a custom Google Maps style.
-- [ ] Add mist/search-area visual treatment.
-- [ ] Add duration, mood and party setup.
-- [ ] Require Google sign-in before setup or gameplay.
-- [ ] Persist and recover the authenticated session securely.
+- [x] Display current position on a custom Google Maps style.
+- [x] Add mist/search-area visual treatment.
+- [x] Add duration, mood and party setup.
+- [x] Require Google sign-in before setup or gameplay.
+- [x] Persist and refresh the authenticated session securely.
 
 Acceptance:
 
@@ -918,14 +921,14 @@ Acceptance:
 
 ### Milestone 2 — Candidate and routing engine
 
-- [ ] Implement `PlacesProvider`.
-- [ ] Implement `RoutingProvider`.
-- [ ] Retrieve nearby candidates.
+- [x] Implement the real Google `PlacesProvider`.
+- [ ] Implement the real Google `RoutingProvider`.
+- [x] Retrieve and normalise nearby candidates.
 - [ ] Apply hard filters.
-- [ ] request walking routes.
-- [ ] score candidate combinations.
-- [ ] return a playability decision.
-- [ ] Add mocked-provider tests.
+- [ ] Request walking routes.
+- [ ] Score candidate combinations.
+- [ ] Return a playability decision.
+- [x] Add mocked-provider and provider-boundary tests.
 
 Acceptance:
 
@@ -1540,11 +1543,12 @@ Done when:
 
 Depends on: WF-104
 
-- [ ] Require authentication before setup and adventure routes.
-- [ ] Configure Supabase Auth with Google OAuth and PKCE.
-- [ ] Add sign-in, callback, logout, account deletion and expired-auth recovery.
-- [ ] Redirect signed-out protected-route requests to sign-in.
-- [ ] Redirect signed-in sign-in requests back to the adventure flow.
+- [x] Require authentication before setup and adventure routes.
+- [x] Configure Supabase Auth with Google OAuth and PKCE.
+- [x] Add sign-in, callback and logout.
+- [ ] Add account deletion and dedicated expired-auth recovery.
+- [x] Redirect signed-out protected-route requests to sign-in.
+- [x] Redirect signed-in sign-in requests back to the adventure flow.
 - [ ] Add authenticated, signed-out and session-lifecycle tests.
 
 Done when:
@@ -2186,7 +2190,16 @@ Done when:
 This is a sequence for focus, not a promise that every item fits perfectly into a day.
 Codex should stop at the end of each block, run checks and leave a testable deployment.
 
+Use **GPT-5.6 Sol** for every remaining Codex implementation stage because that is the
+available model. Use **Medium effort** for documentation, credentials and narrow
+configuration checks. Use **High effort** for provider integrations, safety filters,
+routing, scoring, state machines, AI grounding, authentication, privacy and payments.
+Reserve **X-high effort** for final safety/payment audits or a stubborn defect that
+survives a High-effort pass.
+
 ### Block 1 — Deployable shell
+
+Status: **complete and deployed**.
 
 - Day 1: WF-000, WF-001.
 - Day 2: WF-002.
@@ -2197,6 +2210,9 @@ Output: beautiful arrival screen deployed over HTTPS.
 
 ### Block 2 — Location and setup
 
+Status: **core experience complete and deployed**. Account deletion, dedicated
+expired-session recovery and full auth-lifecycle tests remain as hardening work.
+
 - Day 5: WF-100, WF-101.
 - Day 6: WF-102.
 - Day 7: WF-103.
@@ -2205,6 +2221,9 @@ Output: beautiful arrival screen deployed over HTTPS.
 Output: user grants location, sees the branded map and chooses an adventure.
 
 ### Block 3 — Deterministic playability engine
+
+Status: **WF-200 and WF-201 implementation complete**. The first live Google/Sol
+acceptance search is waiting for server credentials. WF-202 is the next build ticket.
 
 - Day 9: WF-200.
 - Day 10: WF-201.
@@ -2469,24 +2488,35 @@ V0 is complete only when all of the following are true:
 
 ## 28. Exact handoff prompts for Codex
 
-### First implementation task
+Completed work is summarised in [`progress.md`](./progress.md). Do not restart the
+foundation, map, authentication, setup or provider-contract work.
 
-> Read `/Users/rishabhjha/Documents/Codex/2026-07-23/help-me/outputs/plan.md`
-> completely. Inspect the current workspace and preserve existing work. Implement
-> WF-000 through WF-004 only. Run every relevant check, deploy a preview if the
-> workspace is connected to an approved hosting project, update the ticket
-> checkboxes and decision log, and tell me exactly how to open the result on my phone.
+### Current implementation task
 
-### Second implementation task
+Model: **GPT-5.6 Sol**
 
-> Read the complete Wanderfound plan and inspect the implementation left by the
-> previous task. Implement WF-100 through WF-105 only. Use mocked providers where
-> external credentials are unavailable. Run tests and update the plan. Stop after the
-> user can grant foreground location, see the branded map, choose an adventure,
-> sign in with Google and safely resume their authenticated adventure.
+Effort: **High**
 
-### Subsequent implementation rule
+> Read `plan.md` and `progress.md` completely. Inspect the current workspace and
+> preserve existing work. First verify that the server-only Google Places and OpenAI
+> credentials exist without printing their values, then run WF-201's real Delhi and
+> Goa acceptance searches. Fix only evidence-backed provider-normalisation defects.
+> Next implement WF-202 deterministic hard safety filters with a named reason for
+> every rejection and independent tests for every rule. Run all checks, update both
+> planning files, publish through GitHub, and verify the Vercel production deployment.
+> Do not begin routing until WF-202 passes.
 
-Ask Codex to implement one epic or two to four tightly related tickets at a time. Do not
-send “build the entire app” as one task. Each handoff must begin by reading the complete
-plan, inspecting current code and running existing checks.
+### Following implementation task
+
+Model: **GPT-5.6 Sol**
+
+Effort: **High**
+
+> Implement WF-203 real walking-route retrieval only after WF-202 passes. Preserve
+> exact Google pedestrian geometry and steps, reject no-route and excessive-duration
+> options, cover success and failure fixtures, update `plan.md` and `progress.md`, run
+> all checks, publish through GitHub, and verify Vercel production.
+
+Continue implementing one epic or two to four tightly related tickets at a time. Do not
+send “build the entire app” as one task. Each handoff must begin by reading both planning
+files, inspecting current code and running existing checks.
