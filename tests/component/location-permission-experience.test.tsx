@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationPermissionExperience } from "@/components/location-permission-experience";
 import { PRODUCT_EVENT_NAME } from "@/lib/analytics/product-events";
 
@@ -8,11 +8,17 @@ const getCurrentPosition = vi.fn();
 
 beforeEach(() => {
   getCurrentPosition.mockReset();
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
+  vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAP_ID", "");
 
   Object.defineProperty(navigator, "geolocation", {
     configurable: true,
     value: { getCurrentPosition },
   });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("LocationPermissionExperience", () => {
@@ -56,10 +62,13 @@ describe("LocationPermissionExperience", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "We found your trailhead.",
+        name: "Here is your trailhead.",
       }),
     ).toBeVisible();
     expect(screen.getByText("Signal: strong · about 18 m")).toBeVisible();
+    expect(
+      await screen.findByText("The map still needs its key."),
+    ).toBeVisible();
     expect(screen.queryByText("15.4989")).not.toBeInTheDocument();
     expect(screen.queryByText("73.8278")).not.toBeInTheDocument();
   });

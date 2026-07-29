@@ -1240,6 +1240,12 @@ Do not claim the next level before the preceding behaviour exists.
 - The latest validated browser location is cached in session storage for at most
   fifteen minutes. It is scoped to the current tab, validated before reuse and never
   added to analytics.
+- Google Maps loads on demand through a provider-neutral front-end boundary after
+  location is ready. The browser key is restricted to Wanderfound web origins and
+  the Maps JavaScript API; the JavaScript Map ID controls cloud styling separately.
+- The player appears as a small dot inside the browser-provided accuracy radius.
+  Default map controls and clickable place icons are disabled, while Google attribution
+  remains visible and touch gestures use cooperative handling.
 
 ### 2026-07-28
 
@@ -1446,13 +1452,13 @@ Done when:
 
 Depends on: WF-003
 
-- [ ] Define the front-end map interface.
-- [ ] Add Google Maps browser-key and map-ID validation.
-- [ ] Load the map only on the client.
-- [ ] Render the player’s approximate location and accuracy circle.
-- [ ] Disable unnecessary Google Maps controls.
-- [ ] Add attribution in compliance with provider requirements.
-- [ ] Provide a useful missing-token development state.
+- [x] Define the front-end map interface.
+- [x] Add Google Maps browser-key and map-ID validation.
+- [x] Load the map only on the client.
+- [x] Render the player’s approximate location and accuracy circle.
+- [x] Disable unnecessary Google Maps controls.
+- [x] Add attribution in compliance with provider requirements.
+- [x] Provide a useful missing-token development state.
 
 Done when:
 
