@@ -4,7 +4,8 @@ export type ProductEventName =
   | "location_granted"
   | "location_accuracy_rejected"
   | "location_denied"
-  | "location_deferred";
+  | "location_deferred"
+  | "setup_completed";
 
 export type ProductEvent = {
   name: ProductEventName;

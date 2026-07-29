@@ -122,6 +122,10 @@
   width: min(100%, 50rem);
 }
 
+.setupCard {
+  width: min(100%, 54rem);
+}
+
 .eyebrow {
   margin: 0 0 0.7rem;
   color: var(--color-discovery-dark);
@@ -283,6 +287,12 @@
   line-height: 1.45;
 }
 
+.mapActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
 .locatingMark,
 .successMark,
 .pauseMark,
@@ -371,5 +381,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .mapActions > button {
+    width: 100%;
   }
 }
