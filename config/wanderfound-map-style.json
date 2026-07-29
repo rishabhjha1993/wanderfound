@@ -1,0 +1,135 @@
+{
+  "variant": "light",
+  "backgroundColor": "#f6f1e4",
+  "metadata": {
+    "product": "Wanderfound",
+    "purpose": "Warm, low-clutter walking mystery map"
+  },
+  "styles": [
+    {
+      "id": "natural.land",
+      "geometry": {
+        "fillColor": "#f3ecda"
+      }
+    },
+    {
+      "id": "natural.water",
+      "geometry": {
+        "fillColor": "#b9d3ca"
+      },
+      "label": {
+        "textFillColor": "#355c52",
+        "textStrokeColor": "#eaf1e9"
+      }
+    },
+    {
+      "id": "natural.vegetation",
+      "geometry": {
+        "fillColor": "#dfe2c8"
+      }
+    },
+    {
+      "id": "pointOfInterest",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "pointOfInterest.entertainment.historic",
+      "label": {
+        "visible": true,
+        "textFillColor": "#4b675f",
+        "textStrokeColor": "#f6f1e4",
+        "pinFillColor": "#d88363",
+        "pinGlyphColor": "#fffdf8",
+        "pinOutlineColor": "#9e4a37"
+      }
+    },
+    {
+      "id": "pointOfInterest.landmark",
+      "label": {
+        "visible": true,
+        "textFillColor": "#4b675f",
+        "textStrokeColor": "#f6f1e4",
+        "pinFillColor": "#d88363",
+        "pinGlyphColor": "#fffdf8",
+        "pinOutlineColor": "#9e4a37"
+      }
+    },
+    {
+      "id": "pointOfInterest.recreation.park",
+      "geometry": {
+        "fillColor": "#d9dfc4"
+      }
+    },
+    {
+      "id": "infrastructure.building",
+      "geometry": {
+        "fillColor": "#e8dfcc",
+        "strokeColor": "#d8cdb8",
+        "strokeOpacity": 0.65
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork",
+      "label": {
+        "textFillColor": "#657a73",
+        "textStrokeColor": "#f8f4ea",
+        "textStrokeOpacity": 0.9
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.highway",
+      "geometry": {
+        "fillColor": "#dcc49e",
+        "strokeColor": "#c6aa80",
+        "strokeOpacity": 0.75
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.arterial",
+      "geometry": {
+        "fillColor": "#ead8b8",
+        "strokeColor": "#d6c19d",
+        "strokeOpacity": 0.65
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.local",
+      "geometry": {
+        "fillColor": "#fffaf0",
+        "strokeColor": "#ded5c4",
+        "strokeOpacity": 0.55
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.noTraffic.trail",
+      "geometry": {
+        "fillColor": "#b9aa82",
+        "strokeColor": "#8d7f5d",
+        "strokeOpacity": 0.75
+      }
+    },
+    {
+      "id": "infrastructure.transitStation",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political",
+      "label": {
+        "textFillColor": "#425f57",
+        "textStrokeColor": "#f6f1e4",
+        "textStrokeOpacity": 0.9
+      }
+    },
+    {
+      "id": "political.neighborhood",
+      "label": {
+        "textFillColor": "#70847d",
+        "textStrokeColor": "#f6f1e4"
+      }
+    }
+  ]
+}

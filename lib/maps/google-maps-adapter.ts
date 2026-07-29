@@ -7,8 +7,11 @@ import {
 } from "@googlemaps/js-api-loader";
 import type {
   FrontendMapAdapter,
+  MapCoordinate,
+  MapDiscoveredStage,
+  MapRoute,
+  MapSearchArea,
   PlayerMapHandle,
-  PlayerMapLocation,
 } from "@/lib/maps/contracts";
 import type { GoogleMapsBrowserConfig } from "@/lib/maps/config";
 
@@ -34,7 +37,7 @@ export function createGoogleMapsAdapter(
 
   return {
     async mount(container, location) {
-      const { Circle, Map } = await importLibrary("maps");
+      const { Circle, Map, Polyline } = await importLibrary("maps");
       const center = toLatLng(location);
       const map = new Map(container, {
         ...MAP_OPTIONS,
@@ -71,6 +74,9 @@ export function createGoogleMapsAdapter(
       });
 
       let currentLocation = location;
+      let routeLine: google.maps.Polyline | null = null;
+      let searchAreaCircles: google.maps.Circle[] = [];
+      let discoveredStageCircles: google.maps.Circle[] = [];
 
       const handle: PlayerMapHandle = {
         updatePlayerLocation(nextLocation) {
@@ -85,12 +91,31 @@ export function createGoogleMapsAdapter(
           );
           map.panTo(nextCenter);
         },
+        setSearchArea(area) {
+          clearCircles(searchAreaCircles);
+          searchAreaCircles = area
+            ? createSearchAreaCircles(Circle, map, area)
+            : [];
+        },
+        setRoute(route) {
+          routeLine?.setMap(null);
+          routeLine = route ? createRouteLine(Polyline, map, route) : null;
+        },
+        setDiscoveredStages(stages) {
+          clearCircles(discoveredStageCircles);
+          discoveredStageCircles = stages.map((stage) =>
+            createDiscoveredStageCircle(Circle, map, stage),
+          );
+        },
         recenter() {
           map.panTo(toLatLng(currentLocation));
         },
         destroy() {
           accuracyCircle.setMap(null);
           playerDot.setMap(null);
+          routeLine?.setMap(null);
+          clearCircles(searchAreaCircles);
+          clearCircles(discoveredStageCircles);
         },
       };
 
@@ -122,7 +147,84 @@ function configureLoader(config: GoogleMapsBrowserConfig) {
   configuredLoaderKey = loaderKey;
 }
 
-function toLatLng(location: PlayerMapLocation) {
+function createSearchAreaCircles(
+  Circle: typeof google.maps.Circle,
+  map: google.maps.Map,
+  area: MapSearchArea,
+) {
+  const center = toLatLng(area);
+
+  return [
+    new Circle({
+      center,
+      clickable: false,
+      fillColor: "#e9b949",
+      fillOpacity: 0.1,
+      map,
+      radius: area.radiusM * 1.25,
+      strokeColor: "#e9b949",
+      strokeOpacity: 0.22,
+      strokeWeight: 8,
+      zIndex: 3,
+    }),
+    new Circle({
+      center,
+      clickable: false,
+      fillColor: "#f2684a",
+      fillOpacity: 0.16,
+      map,
+      radius: area.radiusM,
+      strokeColor: "#c9472f",
+      strokeOpacity: 0.9,
+      strokeWeight: 2,
+      zIndex: 4,
+    }),
+  ];
+}
+
+function createRouteLine(
+  Polyline: typeof google.maps.Polyline,
+  map: google.maps.Map,
+  route: MapRoute,
+) {
+  const discovered = route.state === "discovered";
+
+  return new Polyline({
+    clickable: false,
+    geodesic: true,
+    map,
+    path: route.points.map(toLatLng),
+    strokeColor: discovered ? "#6f8880" : "#153d35",
+    strokeOpacity: discovered ? 0.42 : 0.92,
+    strokeWeight: discovered ? 4 : 5,
+    zIndex: 2,
+  });
+}
+
+function createDiscoveredStageCircle(
+  Circle: typeof google.maps.Circle,
+  map: google.maps.Map,
+  stage: MapDiscoveredStage,
+) {
+  return new Circle({
+    center: toLatLng(stage),
+    clickable: false,
+    fillColor: "#e9b949",
+    fillOpacity: 1,
+    map,
+    radius: 6,
+    strokeColor: "#153d35",
+    strokeOpacity: 1,
+    strokeWeight: 3,
+    zIndex: 5,
+  });
+}
+
+function clearCircles(circles: google.maps.Circle[]) {
+  circles.forEach((circle) => circle.setMap(null));
+}
+
+function toLatLng(location: MapCoordinate) {
   return {
     lat: location.latitude,
     lng: location.longitude,

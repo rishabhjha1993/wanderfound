@@ -13,6 +13,7 @@ vi.mock("@googlemaps/js-api-loader", () => ({
 
 const mapInstances: FakeMap[] = [];
 const circleInstances: FakeCircle[] = [];
+const polylineInstances: FakePolyline[] = [];
 
 class FakeMap {
   panTo = vi.fn();
@@ -35,12 +36,25 @@ class FakeCircle {
   }
 }
 
+class FakePolyline {
+  setMap = vi.fn();
+
+  constructor(public options: Record<string, unknown>) {
+    polylineInstances.push(this);
+  }
+}
+
 beforeEach(() => {
   setOptions.mockClear();
   importLibrary.mockReset();
   mapInstances.length = 0;
   circleInstances.length = 0;
-  importLibrary.mockResolvedValue({ Circle: FakeCircle, Map: FakeMap });
+  polylineInstances.length = 0;
+  importLibrary.mockResolvedValue({
+    Circle: FakeCircle,
+    Map: FakeMap,
+    Polyline: FakePolyline,
+  });
 });
 
 describe("Google Maps adapter", () => {
@@ -91,6 +105,52 @@ describe("Google Maps adapter", () => {
       lng: 73.82,
     });
 
+    handle.setSearchArea({
+      latitude: 15.5,
+      longitude: 73.83,
+      radiusM: 45,
+    });
+    expect(circleInstances[2].options).toEqual(
+      expect.objectContaining({
+        radius: 56.25,
+        fillColor: "#e9b949",
+      }),
+    );
+    expect(circleInstances[3].options).toEqual(
+      expect.objectContaining({
+        radius: 45,
+        fillColor: "#f2684a",
+      }),
+    );
+
+    handle.setRoute({
+      points: [
+        { latitude: 15.49, longitude: 73.82 },
+        { latitude: 15.5, longitude: 73.83 },
+      ],
+      state: "active",
+    });
+    expect(polylineInstances[0].options).toEqual(
+      expect.objectContaining({
+        path: [
+          { lat: 15.49, lng: 73.82 },
+          { lat: 15.5, lng: 73.83 },
+        ],
+        strokeColor: "#153d35",
+        strokeOpacity: 0.92,
+      }),
+    );
+
+    handle.setDiscoveredStages([
+      { id: "stage-1", latitude: 15.495, longitude: 73.825 },
+    ]);
+    expect(circleInstances[4].options).toEqual(
+      expect.objectContaining({
+        center: { lat: 15.495, lng: 73.825 },
+        fillColor: "#e9b949",
+      }),
+    );
+
     handle.recenter();
     expect(mapInstances[0].panTo).toHaveBeenLastCalledWith({
       lat: 15.49,
@@ -100,5 +160,9 @@ describe("Google Maps adapter", () => {
     handle.destroy();
     expect(circleInstances[0].setMap).toHaveBeenCalledWith(null);
     expect(circleInstances[1].setMap).toHaveBeenCalledWith(null);
+    expect(circleInstances[2].setMap).toHaveBeenCalledWith(null);
+    expect(circleInstances[3].setMap).toHaveBeenCalledWith(null);
+    expect(circleInstances[4].setMap).toHaveBeenCalledWith(null);
+    expect(polylineInstances[0].setMap).toHaveBeenCalledWith(null);
   });
 });

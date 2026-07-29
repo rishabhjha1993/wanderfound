@@ -6,19 +6,27 @@ import {
   describeGoogleMapsConfigIssues,
   getGoogleMapsBrowserConfig,
 } from "@/lib/maps/config";
-import type { PlayerMapHandle, PlayerMapLocation } from "@/lib/maps/contracts";
+import type {
+  PlayerMapHandle,
+  PlayerMapLayers,
+  PlayerMapLocation,
+} from "@/lib/maps/contracts";
 import { createGoogleMapsAdapter } from "@/lib/maps/google-maps-adapter";
 import styles from "./player-location-map.module.css";
 
 type MapView = "loading" | "ready" | "unconfigured" | "failed";
 
 export function PlayerLocationMap({
+  layers,
   location,
 }: {
+  layers?: PlayerMapLayers;
   location: PlayerMapLocation;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<PlayerMapHandle | null>(null);
+  const latestLayersRef = useRef(layers);
+  const latestLocationRef = useRef(location);
   const configResult = useMemo(() => getGoogleMapsBrowserConfig(), []);
   const missingVariables = configResult.ok
     ? []
@@ -27,6 +35,14 @@ export function PlayerLocationMap({
     configResult.ok ? "loading" : "unconfigured",
   );
   const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    latestLocationRef.current = location;
+  }, [location]);
+
+  useEffect(() => {
+    latestLayersRef.current = layers;
+  }, [layers]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -45,7 +61,7 @@ export function PlayerLocationMap({
     let cancelled = false;
 
     createGoogleMapsAdapter(configResult.config)
-      .mount(container, location)
+      .mount(container, latestLocationRef.current)
       .then((handle) => {
         if (cancelled) {
           handle.destroy();
@@ -53,6 +69,8 @@ export function PlayerLocationMap({
         }
 
         handleRef.current = handle;
+        handle.updatePlayerLocation(latestLocationRef.current);
+        applyLayers(handle, latestLayersRef.current);
         setView("ready");
       })
       .catch(() => {
@@ -71,7 +89,17 @@ export function PlayerLocationMap({
       handleRef.current?.destroy();
       handleRef.current = null;
     };
-  }, [attempt, configResult, location]);
+  }, [attempt, configResult]);
+
+  useEffect(() => {
+    handleRef.current?.updatePlayerLocation(location);
+  }, [location]);
+
+  useEffect(() => {
+    if (handleRef.current) {
+      applyLayers(handleRef.current, layers);
+    }
+  }, [layers]);
 
   return (
     <section className={styles.frame} aria-label="Your approximate location">
@@ -80,6 +108,7 @@ export function PlayerLocationMap({
         ref={containerRef}
         aria-hidden={view !== "ready"}
       />
+      <div className={styles.mist} aria-hidden="true" />
 
       {view === "loading" ? (
         <MapMessage
@@ -136,6 +165,12 @@ export function PlayerLocationMap({
       ) : null}
     </section>
   );
+}
+
+function applyLayers(handle: PlayerMapHandle, layers?: PlayerMapLayers) {
+  handle.setSearchArea(layers?.searchArea ?? null);
+  handle.setRoute(layers?.route ?? null);
+  handle.setDiscoveredStages(layers?.discoveredStages ?? []);
 }
 
 function MapMessage({
