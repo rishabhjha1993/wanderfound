@@ -1242,13 +1242,16 @@ Do not claim the next level before the preceding behaviour exists.
   added to analytics.
 - Google Maps loads on demand through a provider-neutral front-end boundary after
   location is ready. The browser key is restricted to Wanderfound web origins and
-  the Maps JavaScript API; the JavaScript Map ID controls cloud styling separately.
+  the Maps JavaScript API.
 - The player appears as a small dot inside the browser-provided accuracy radius.
   Default map controls and clickable place icons are disabled, while Google attribution
   remains visible and touch gestures use cooperative handling.
-- Wanderfound map styling is source-controlled as cloud-style JSON and associated with
-  the JavaScript Map ID. The front-end map boundary owns reusable search-area, route
-  and discovered-stage layers plus a reduced-motion, high-contrast-aware mist treatment.
+- V0 uses a source-controlled raster style at runtime so its dark field-map palette and
+  hidden point-of-interest clutter appear deterministically without waiting for cloud
+  style propagation. The provisioned JavaScript Map ID is retained for a future switch
+  to centrally managed styling. The front-end map boundary owns reusable search-area,
+  double-stroked route and discovered-stage layers plus a reduced-motion,
+  high-contrast-aware mist treatment.
 
 ### 2026-07-28
 

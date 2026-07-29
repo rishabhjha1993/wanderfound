@@ -14,6 +14,7 @@ import type {
   PlayerMapHandle,
 } from "@/lib/maps/contracts";
 import type { GoogleMapsBrowserConfig } from "@/lib/maps/config";
+import { WANDERFOUND_RASTER_STYLE } from "@/lib/maps/wanderfound-raster-style";
 
 const MAP_OPTIONS = {
   clickableIcons: false,
@@ -37,44 +38,46 @@ export function createGoogleMapsAdapter(
 
   return {
     async mount(container, location) {
-      const { Circle, Map, Polyline } = await importLibrary("maps");
+      const { Circle, Map, Polyline, RenderingType } =
+        await importLibrary("maps");
       const center = toLatLng(location);
       const map = new Map(container, {
         ...MAP_OPTIONS,
-        backgroundColor: "#e8dfca",
+        backgroundColor: "#102f2b",
         center,
-        mapId: config.mapId,
+        renderingType: RenderingType.RASTER,
+        styles: WANDERFOUND_RASTER_STYLE,
         zoom: location.accuracyM <= 25 ? 17 : 16,
       });
 
       const accuracyCircle = new Circle({
         center,
         clickable: false,
-        fillColor: "#f2684a",
-        fillOpacity: 0.14,
+        fillColor: "#f5b85f",
+        fillOpacity: 0.1,
         map,
         radius: location.accuracyM,
-        strokeColor: "#c9472f",
-        strokeOpacity: 0.7,
-        strokeWeight: 1.5,
+        strokeColor: "#ffd996",
+        strokeOpacity: 0.62,
+        strokeWeight: 1.8,
         zIndex: 1,
       });
 
       const playerDot = new Circle({
         center,
         clickable: false,
-        fillColor: "#153d35",
+        fillColor: "#f06449",
         fillOpacity: 1,
         map,
         radius: Math.min(6, Math.max(3, location.accuracyM / 6)),
-        strokeColor: "#fffdf8",
+        strokeColor: "#fff1c7",
         strokeOpacity: 1,
         strokeWeight: 3,
-        zIndex: 2,
+        zIndex: 6,
       });
 
       let currentLocation = location;
-      let routeLine: google.maps.Polyline | null = null;
+      let routeLines: google.maps.Polyline[] = [];
       let searchAreaCircles: google.maps.Circle[] = [];
       let discoveredStageCircles: google.maps.Circle[] = [];
 
@@ -98,13 +101,13 @@ export function createGoogleMapsAdapter(
             : [];
         },
         setRoute(route) {
-          routeLine?.setMap(null);
-          routeLine = route ? createRouteLine(Polyline, map, route) : null;
+          clearPolylines(routeLines);
+          routeLines = route ? createRouteLines(Polyline, map, route) : [];
         },
         setDiscoveredStages(stages) {
           clearCircles(discoveredStageCircles);
-          discoveredStageCircles = stages.map((stage) =>
-            createDiscoveredStageCircle(Circle, map, stage),
+          discoveredStageCircles = stages.flatMap((stage) =>
+            createDiscoveredStageCircles(Circle, map, stage),
           );
         },
         recenter() {
@@ -113,7 +116,7 @@ export function createGoogleMapsAdapter(
         destroy() {
           accuracyCircle.setMap(null);
           playerDot.setMap(null);
-          routeLine?.setMap(null);
+          clearPolylines(routeLines);
           clearCircles(searchAreaCircles);
           clearCircles(discoveredStageCircles);
         },
@@ -138,7 +141,6 @@ function configureLoader(config: GoogleMapsBrowserConfig) {
   const options: APIOptions = {
     authReferrerPolicy: "origin",
     key: config.apiKey,
-    mapIds: [config.mapId],
     region: "IN",
     v: "quarterly",
   };
@@ -158,70 +160,115 @@ function createSearchAreaCircles(
     new Circle({
       center,
       clickable: false,
-      fillColor: "#e9b949",
-      fillOpacity: 0.1,
+      fillColor: "#f4b85f",
+      fillOpacity: 0.035,
+      map,
+      radius: area.radiusM * 1.65,
+      strokeColor: "#f4b85f",
+      strokeOpacity: 0.09,
+      strokeWeight: 14,
+      zIndex: 2,
+    }),
+    new Circle({
+      center,
+      clickable: false,
+      fillColor: "#f4c875",
+      fillOpacity: 0.08,
       map,
       radius: area.radiusM * 1.25,
-      strokeColor: "#e9b949",
-      strokeOpacity: 0.22,
+      strokeColor: "#f4c875",
+      strokeOpacity: 0.25,
       strokeWeight: 8,
       zIndex: 3,
     }),
     new Circle({
       center,
       clickable: false,
-      fillColor: "#f2684a",
-      fillOpacity: 0.16,
+      fillColor: "#f06449",
+      fillOpacity: 0.18,
       map,
       radius: area.radiusM,
-      strokeColor: "#c9472f",
-      strokeOpacity: 0.9,
+      strokeColor: "#ffd895",
+      strokeOpacity: 0.86,
       strokeWeight: 2,
       zIndex: 4,
     }),
   ];
 }
 
-function createRouteLine(
+function createRouteLines(
   Polyline: typeof google.maps.Polyline,
   map: google.maps.Map,
   route: MapRoute,
 ) {
   const discovered = route.state === "discovered";
+  const path = route.points.map(toLatLng);
 
-  return new Polyline({
-    clickable: false,
-    geodesic: true,
-    map,
-    path: route.points.map(toLatLng),
-    strokeColor: discovered ? "#6f8880" : "#153d35",
-    strokeOpacity: discovered ? 0.42 : 0.92,
-    strokeWeight: discovered ? 4 : 5,
-    zIndex: 2,
-  });
+  return [
+    new Polyline({
+      clickable: false,
+      geodesic: true,
+      map,
+      path,
+      strokeColor: discovered ? "#78a69a" : "#f4ae4f",
+      strokeOpacity: discovered ? 0.16 : 0.24,
+      strokeWeight: discovered ? 9 : 13,
+      zIndex: 2,
+    }),
+    new Polyline({
+      clickable: false,
+      geodesic: true,
+      map,
+      path,
+      strokeColor: discovered ? "#9ab8aa" : "#ffe6a8",
+      strokeOpacity: discovered ? 0.48 : 0.96,
+      strokeWeight: discovered ? 3 : 4,
+      zIndex: 3,
+    }),
+  ];
 }
 
-function createDiscoveredStageCircle(
+function createDiscoveredStageCircles(
   Circle: typeof google.maps.Circle,
   map: google.maps.Map,
   stage: MapDiscoveredStage,
 ) {
-  return new Circle({
-    center: toLatLng(stage),
-    clickable: false,
-    fillColor: "#e9b949",
-    fillOpacity: 1,
-    map,
-    radius: 6,
-    strokeColor: "#153d35",
-    strokeOpacity: 1,
-    strokeWeight: 3,
-    zIndex: 5,
-  });
+  const center = toLatLng(stage);
+
+  return [
+    new Circle({
+      center,
+      clickable: false,
+      fillColor: "#f4c875",
+      fillOpacity: 0.12,
+      map,
+      radius: 15,
+      strokeColor: "#f4c875",
+      strokeOpacity: 0.2,
+      strokeWeight: 7,
+      zIndex: 4,
+    }),
+    new Circle({
+      center,
+      clickable: false,
+      fillColor: "#f7ca68",
+      fillOpacity: 1,
+      map,
+      radius: 6,
+      strokeColor: "#fff0c8",
+      strokeOpacity: 1,
+      strokeWeight: 2.5,
+      zIndex: 5,
+    }),
+  ];
 }
 
 function clearCircles(circles: google.maps.Circle[]) {
   circles.forEach((circle) => circle.setMap(null));
+}
+
+function clearPolylines(polylines: google.maps.Polyline[]) {
+  polylines.forEach((polyline) => polyline.setMap(null));
 }
 
 function toLatLng(location: MapCoordinate) {

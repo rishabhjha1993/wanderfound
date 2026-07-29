@@ -109,6 +109,19 @@ export function PlayerLocationMap({
         aria-hidden={view !== "ready"}
       />
       <div className={styles.mist} aria-hidden="true" />
+      <svg
+        className={styles.contours}
+        viewBox="0 0 1000 500"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M-50 118C80 22 225 35 302 101s15 145-98 148S-1 216-50 284" />
+        <path d="M-38 146C72 65 192 69 251 118s10 103-78 108S12 207-38 254" />
+        <path d="M1067 194c-85-80-196-67-246-11s1 121 88 122 137-46 158-87" />
+        <path d="M1054 225c-66-58-148-50-184-8s4 83 64 84 98-31 120-65" />
+        <path d="M280 527c55-92 152-135 249-111s119 78 208 58 125-83 199-74" />
+      </svg>
+      <div className={styles.motes} aria-hidden="true" />
 
       {view === "loading" ? (
         <MapMessage
@@ -155,7 +168,7 @@ export function PlayerLocationMap({
             onClick={() => handleRef.current?.recenter()}
             aria-label="Recenter map on me"
           >
-            ⌖
+            <span className={styles.compass} aria-hidden="true" />
           </button>
           <div className={styles.legend}>
             <span aria-hidden="true" />
