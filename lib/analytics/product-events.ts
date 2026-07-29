@@ -2,6 +2,7 @@ export type ProductEventName =
   | "location_prompt_viewed"
   | "location_request_started"
   | "location_granted"
+  | "location_accuracy_rejected"
   | "location_denied"
   | "location_deferred";
 

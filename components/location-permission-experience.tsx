@@ -5,16 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import {
+  isUsableLocationQuality,
   requestForegroundLocation,
+  type LocationAccuracyQuality,
   type LocationRequestFailure,
 } from "@/lib/location/request-foreground-location";
 import styles from "./location-permission-experience.module.css";
 
+type LocationAccuracyProblem = "weak_accuracy" | "unusable_accuracy";
+type LocationProblem = LocationRequestFailure | LocationAccuracyProblem;
 type LocationView =
-  "education" | "requesting" | "granted" | "deferred" | LocationRequestFailure;
+  "education" | "requesting" | "granted" | "deferred" | LocationProblem;
 
 const FAILURE_COPY: Record<
-  LocationRequestFailure,
+  LocationProblem,
   { heading: string; description: string; action: string }
 > = {
   permission_denied: {
@@ -47,11 +51,25 @@ const FAILURE_COPY: Record<
       "Nothing was saved. Check your browser’s location permission and try again.",
     action: "Try again",
   },
+  weak_accuracy: {
+    heading: "Your location is a little fuzzy.",
+    description:
+      "Move near a window or step into an open area, keep location services on, and try again.",
+    action: "Improve my location",
+  },
+  unusable_accuracy: {
+    heading: "That area is too broad to start safely.",
+    description:
+      "Your phone found a position, but not precisely enough to build a reliable walking adventure. Move outdoors and retry.",
+    action: "Find me again",
+  },
 };
 
 export function LocationPermissionExperience() {
   const [view, setView] = useState<LocationView>("education");
   const [accuracyM, setAccuracyM] = useState<number | null>(null);
+  const [accuracyQuality, setAccuracyQuality] =
+    useState<LocationAccuracyQuality | null>(null);
   const promptTracked = useRef(false);
 
   useEffect(() => {
@@ -71,10 +89,22 @@ export function LocationPermissionExperience() {
 
     if (result.ok) {
       setAccuracyM(result.location.accuracyM);
-      setView("granted");
+      setAccuracyQuality(result.quality);
       trackProductEvent("location_granted", {
-        accuracy: accuracyBucket(result.location.accuracyM),
+        accuracy: result.quality,
       });
+
+      if (!isUsableLocationQuality(result.quality)) {
+        setView(
+          result.quality === "weak" ? "weak_accuracy" : "unusable_accuracy",
+        );
+        trackProductEvent("location_accuracy_rejected", {
+          accuracy: result.quality,
+        });
+        return;
+      }
+
+      setView("granted");
       return;
     }
 
@@ -122,7 +152,11 @@ export function LocationPermissionExperience() {
         {view === "requesting" ? <Requesting /> : null}
 
         {view === "granted" ? (
-          <Granted accuracyM={accuracyM} onRefresh={requestLocation} />
+          <Granted
+            accuracyM={accuracyM}
+            quality={accuracyQuality}
+            onRefresh={requestLocation}
+          />
         ) : null}
 
         {view === "deferred" ? <Deferred onRequest={requestLocation} /> : null}
@@ -130,6 +164,11 @@ export function LocationPermissionExperience() {
         {failure ? (
           <Failure
             action={failure.action}
+            accuracyM={
+              view === "weak_accuracy" || view === "unusable_accuracy"
+                ? accuracyM
+                : null
+            }
             description={failure.description}
             heading={failure.heading}
             onRetry={requestLocation}
@@ -206,9 +245,11 @@ function Requesting() {
 
 function Granted({
   accuracyM,
+  quality,
   onRefresh,
 }: {
   accuracyM: number | null;
+  quality: LocationAccuracyQuality | null;
   onRefresh: () => void;
 }) {
   return (
@@ -221,7 +262,10 @@ function Granted({
       <p className={styles.description}>
         Your position is ready for the map. Adventure choices come next.
       </p>
-      <p className={styles.accuracy}>Signal: {accuracyLabel(accuracyM)}</p>
+      <p className={styles.accuracy}>
+        Signal: {quality ?? "received"}
+        {accuracyM === null ? "" : ` · about ${Math.round(accuracyM)} m`}
+      </p>
       <button
         className={styles.secondaryAction}
         type="button"
@@ -259,11 +303,13 @@ function Deferred({ onRequest }: { onRequest: () => void }) {
 
 function Failure({
   action,
+  accuracyM,
   description,
   heading,
   onRetry,
 }: {
   action: string;
+  accuracyM: number | null;
   description: string;
   heading: string;
   onRetry: () => void;
@@ -276,6 +322,11 @@ function Failure({
       <p className={styles.eyebrow}>We need a little help</p>
       <h1>{heading}</h1>
       <p className={styles.description}>{description}</p>
+      {accuracyM === null ? null : (
+        <p className={styles.accuracy}>
+          Current accuracy: about {Math.round(accuracyM)} m
+        </p>
+      )}
       <Button fullWidth onClick={onRetry}>
         {action}
       </Button>
@@ -306,24 +357,4 @@ function PromiseItem({
       </div>
     </div>
   );
-}
-
-function accuracyBucket(accuracyM: number) {
-  if (accuracyM <= 25) {
-    return "strong";
-  }
-
-  if (accuracyM <= 100) {
-    return "usable";
-  }
-
-  return "weak";
-}
-
-function accuracyLabel(accuracyM: number | null) {
-  if (accuracyM === null) {
-    return "received";
-  }
-
-  return accuracyBucket(accuracyM);
 }

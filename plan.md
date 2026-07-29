@@ -900,7 +900,7 @@ Acceptance:
 ### Milestone 1 — Location and beautiful map
 
 - [x] Explain and request foreground location.
-- [ ] Handle denied, unavailable and imprecise states.
+- [x] Handle denied, unavailable and imprecise states.
 - [ ] Display current position on a custom Google Maps style.
 - [ ] Add mist/search-area visual treatment.
 - [ ] Add duration, mood and party setup.
@@ -1233,6 +1233,14 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-07-29
+
+- GPS accuracy is classified consistently as strong (≤25 m), usable (≤100 m),
+  weak (≤250 m) or unusable (>250 m). Only strong and usable readings may advance.
+- The latest validated browser location is cached in session storage for at most
+  fifteen minutes. It is scoped to the current tab, validated before reuse and never
+  added to analytics.
+
 ### 2026-07-28
 
 - The workspace was a new product plan with no existing application code; Milestone 0
@@ -1422,12 +1430,12 @@ Done when:
 
 Depends on: WF-100
 
-- [ ] Wrap browser geolocation behind an application service.
-- [ ] Capture latitude, longitude, accuracy and timestamp.
-- [ ] Define acceptable, weak and unusable accuracy thresholds.
-- [ ] Handle unsupported browser, timeout, denial and unavailable states.
-- [ ] Add a retry that does not reload the application.
-- [ ] Add unit tests with mocked browser responses.
+- [x] Wrap browser geolocation behind an application service.
+- [x] Capture latitude, longitude, accuracy and timestamp.
+- [x] Define acceptable, weak and unusable accuracy thresholds.
+- [x] Handle unsupported browser, timeout, denial and unavailable states.
+- [x] Add a retry that does not reload the application.
+- [x] Add unit tests with mocked browser responses.
 
 Done when:
 
