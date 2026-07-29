@@ -352,6 +352,104 @@
   line-height: 1.45;
 }
 
+.discoveryError {
+  width: 100%;
+  margin: 0.7rem 0 0;
+  color: var(--color-discovery-dark);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.discoveryResult {
+  display: grid;
+  width: 100%;
+  gap: 0.85rem;
+  margin-bottom: 0.8rem;
+  border: 1px solid rgba(21, 61, 53, 0.14);
+  border-radius: 1rem;
+  padding: 1rem;
+  text-align: left;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(233, 185, 73, 0.14),
+      transparent 40%
+    ),
+    rgba(255, 253, 248, 0.66);
+}
+
+.discoveryHeading {
+  display: flex;
+  gap: 1rem;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.discoveryHeading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.discoveryHeading > span {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.55rem;
+  color: var(--color-ink-faint);
+  font-size: 0.56rem;
+  font-weight: 800;
+}
+
+.placeList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.placeList li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  border-top: 1px solid var(--color-line);
+  padding: 0.72rem 0;
+}
+
+.placeList li > span {
+  color: var(--color-discovery-dark);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.placeList strong {
+  display: block;
+  font-size: 0.74rem;
+}
+
+.placeList p,
+.emptyDiscovery,
+.googleAttribution {
+  margin: 0.2rem 0 0;
+  color: var(--color-ink-faint);
+  font-size: 0.61rem;
+  line-height: 1.4;
+}
+
+.placeList a {
+  color: var(--color-discovery-dark);
+  font-size: 0.63rem;
+  font-weight: 800;
+}
+
+.googleAttribution {
+  border-top: 1px solid var(--color-line);
+  padding-top: 0.7rem;
+}
+
 @media (max-width: 680px) {
   .introduction {
     grid-template-columns: 1fr;
@@ -374,6 +472,14 @@
 
   .actions {
     grid-template-columns: 1fr;
+  }
+
+  .discoveryHeading {
+    display: grid;
+  }
+
+  .discoveryHeading > span {
+    justify-self: start;
   }
 
   .continue {
