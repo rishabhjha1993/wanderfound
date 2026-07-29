@@ -74,10 +74,10 @@ describe("Google Maps adapter", () => {
     expect(setOptions).toHaveBeenCalledWith(
       expect.objectContaining({
         authReferrerPolicy: "origin",
-        region: "IN",
         v: "quarterly",
       }),
     );
+    expect(setOptions.mock.calls[0][0]).not.toHaveProperty("region");
     expect(mapInstances[0].options).toEqual(
       expect.objectContaining({
         clickableIcons: false,

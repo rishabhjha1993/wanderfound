@@ -101,7 +101,8 @@ export const NearbyPlacesInputSchema = z
     regionCode: z
       .string()
       .trim()
-      .regex(/^[A-Z]{2}$/),
+      .regex(/^[A-Z]{2}$/)
+      .optional(),
   })
   .strict();
 
@@ -116,7 +117,8 @@ export const WalkingRouteInputSchema = z
     regionCode: z
       .string()
       .trim()
-      .regex(/^[A-Z]{2}$/),
+      .regex(/^[A-Z]{2}$/)
+      .optional(),
   })
   .strict();
 

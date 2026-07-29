@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  NearbyPlacesInputSchema,
   PlaceCandidateSchema,
+  WalkingRouteInputSchema,
   WalkingRouteSchema,
 } from "@/lib/providers/domain";
 import { ProviderResponseError } from "@/lib/providers/errors";
@@ -85,5 +87,25 @@ describe("provider domain schemas", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts coordinates without requiring a country hint", () => {
+    expect(
+      NearbyPlacesInputSchema.parse({
+        origin: { latitude: 28.6139, longitude: 77.209 },
+        radiusMeters: 1_500,
+        maxResults: 20,
+        categories: ["heritage", "public_art"],
+        languageCode: "en",
+      }),
+    ).not.toHaveProperty("regionCode");
+
+    expect(
+      WalkingRouteInputSchema.parse({
+        origin: { latitude: 35.6762, longitude: 139.6503 },
+        destination: { latitude: 35.6801, longitude: 139.652 },
+        languageCode: "en",
+      }),
+    ).not.toHaveProperty("regionCode");
   });
 });
