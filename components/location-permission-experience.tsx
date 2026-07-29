@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  AdventureSetup,
+  AdventureSetupComplete,
+} from "@/components/adventure-setup";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PlayerLocationMap } from "@/components/player-location-map";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import {
+  EMPTY_ADVENTURE_SETUP,
+  type AdventureSetupDraft,
+  type CompleteAdventureSetup,
+  isCompleteAdventureSetup,
+  readAdventureSetupDraft,
+} from "@/lib/adventure/setup-session";
+import {
+  classifyLocationAccuracy,
   isUsableLocationQuality,
+  readSessionLocation,
   requestForegroundLocation,
   type ForegroundLocation,
   type LocationAccuracyQuality,
@@ -17,7 +30,13 @@ import styles from "./location-permission-experience.module.css";
 type LocationAccuracyProblem = "weak_accuracy" | "unusable_accuracy";
 type LocationProblem = LocationRequestFailure | LocationAccuracyProblem;
 type LocationView =
-  "education" | "requesting" | "granted" | "deferred" | LocationProblem;
+  | "education"
+  | "requesting"
+  | "granted"
+  | "setup"
+  | "setup_complete"
+  | "deferred"
+  | LocationProblem;
 
 const FAILURE_COPY: Record<
   LocationProblem,
@@ -73,10 +92,56 @@ export function LocationPermissionExperience() {
   const [accuracyQuality, setAccuracyQuality] =
     useState<LocationAccuracyQuality | null>(null);
   const [location, setLocation] = useState<ForegroundLocation | null>(null);
+  const [setupDraft, setSetupDraft] = useState<AdventureSetupDraft>(
+    EMPTY_ADVENTURE_SETUP,
+  );
   const promptTracked = useRef(false);
 
   useEffect(() => {
-    if (promptTracked.current) {
+    const cachedLocation = readSessionLocation();
+
+    if (!cachedLocation) {
+      return;
+    }
+
+    const quality = classifyLocationAccuracy(cachedLocation.accuracyM);
+
+    if (!isUsableLocationQuality(quality)) {
+      return;
+    }
+
+    const savedSetup = readAdventureSetupDraft();
+    const hasSetupChoice = Object.values(savedSetup).some(
+      (value) => value !== null,
+    );
+
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setAccuracyM(cachedLocation.accuracyM);
+      setAccuracyQuality(quality);
+      setLocation(cachedLocation);
+      setSetupDraft(savedSetup);
+      setView(
+        isCompleteAdventureSetup(savedSetup)
+          ? "setup_complete"
+          : hasSetupChoice
+            ? "setup"
+            : "granted",
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (promptTracked.current || readSessionLocation()) {
       return;
     }
 
@@ -127,6 +192,8 @@ export function LocationPermissionExperience() {
     view !== "education" &&
     view !== "requesting" &&
     view !== "granted" &&
+    view !== "setup" &&
+    view !== "setup_complete" &&
     view !== "deferred"
       ? FAILURE_COPY[view]
       : null;
@@ -145,11 +212,17 @@ export function LocationPermissionExperience() {
           </span>
           Wanderfound
         </span>
-        <span className={styles.step}>Trailhead · 1 of 3</span>
+        <span className={styles.step}>{stepLabel(view)}</span>
       </header>
 
       <Card
-        className={`${styles.card} ${view === "granted" ? styles.mapCard : ""}`}
+        className={`${styles.card} ${
+          view === "granted"
+            ? styles.mapCard
+            : view === "setup"
+              ? styles.setupCard
+              : ""
+        }`}
       >
         {view === "education" ? (
           <Education onRequest={requestLocation} onDefer={deferLocation} />
@@ -163,6 +236,29 @@ export function LocationPermissionExperience() {
             location={location}
             quality={accuracyQuality}
             onRefresh={requestLocation}
+            onContinue={() => {
+              setSetupDraft(readAdventureSetupDraft());
+              setView("setup");
+            }}
+          />
+        ) : null}
+
+        {view === "setup" ? (
+          <AdventureSetup
+            initialDraft={setupDraft}
+            onBack={() => setView("granted")}
+            onComplete={(setup) => {
+              setSetupDraft(setup);
+              trackSetupCompletion(setup);
+              setView("setup_complete");
+            }}
+          />
+        ) : null}
+
+        {view === "setup_complete" && isCompleteAdventureSetup(setupDraft) ? (
+          <AdventureSetupComplete
+            setup={setupDraft}
+            onEdit={() => setView("setup")}
           />
         ) : null}
 
@@ -254,11 +350,13 @@ function Granted({
   accuracyM,
   location,
   quality,
+  onContinue,
   onRefresh,
 }: {
   accuracyM: number | null;
   location: ForegroundLocation | null;
   quality: LocationAccuracyQuality | null;
+  onContinue: () => void;
   onRefresh: () => void;
 }) {
   return (
@@ -293,6 +391,9 @@ function Granted({
         Google’s map attribution stays visible inside the map. Wanderfound does
         not add your precise coordinates to product analytics.
       </p>
+      <div className={styles.mapActions}>
+        <Button onClick={onContinue}>Choose my adventure</Button>
+      </div>
     </div>
   );
 }
@@ -377,4 +478,24 @@ function PromiseItem({
       </div>
     </div>
   );
+}
+
+function stepLabel(view: LocationView) {
+  if (view === "setup") {
+    return "Your adventure · 2 of 3";
+  }
+
+  if (view === "setup_complete") {
+    return "Compass set · 2 of 3";
+  }
+
+  return "Trailhead · 1 of 3";
+}
+
+function trackSetupCompletion(setup: CompleteAdventureSetup) {
+  trackProductEvent("setup_completed", {
+    duration_minutes: setup.durationMinutes,
+    mood: setup.mood,
+    party_mode: setup.partyMode,
+  });
 }

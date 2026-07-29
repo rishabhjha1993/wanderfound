@@ -1252,6 +1252,11 @@ Do not claim the next level before the preceding behaviour exists.
   to centrally managed styling. The front-end map boundary owns reusable search-area,
   double-stroked route and discovered-stage layers plus a reduced-motion,
   high-contrast-aware mist treatment.
+- The V0 adventure-writing engine will use OpenAI's Responses API with
+  `gpt-5.6-sol` at medium reasoning. Google Places, Routes and grounded public
+  sources provide the factual allow-list; the model may arrange approved candidates
+  and write clues but may never invent a destination, coordinate, opening status or
+  local fact. Setup itself makes no model call.
 
 ### 2026-07-28
 
@@ -1492,12 +1497,12 @@ Done when:
 
 Depends on: WF-003
 
-- [ ] Add 30- and 60-minute duration selection.
-- [ ] Add historical, culinary, strange and beautiful moods.
-- [ ] Add solo, couple/friends and family party modes.
-- [ ] Provide one-sentence explanations rather than ambiguous icons.
-- [ ] Validate a complete selection before continuing.
-- [ ] Track setup completion and selected values.
+- [x] Add 30- and 60-minute duration selection.
+- [x] Add historical, culinary, strange and beautiful moods.
+- [x] Add solo, couple/friends and family party modes.
+- [x] Provide one-sentence explanations rather than ambiguous icons.
+- [x] Validate a complete selection before continuing.
+- [x] Track setup completion and selected values.
 
 Done when:
 

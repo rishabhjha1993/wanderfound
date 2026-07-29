@@ -8,6 +8,7 @@ const getCurrentPosition = vi.fn();
 
 beforeEach(() => {
   getCurrentPosition.mockReset();
+  window.sessionStorage.clear();
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "");
   vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAP_ID", "");
 
@@ -71,6 +72,63 @@ describe("LocationPermissionExperience", () => {
     ).toBeVisible();
     expect(screen.queryByText("15.4989")).not.toBeInTheDocument();
     expect(screen.queryByText("73.8278")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose my adventure" }),
+    ).toBeVisible();
+  });
+
+  it("completes setup and tracks only the selected values", async () => {
+    const events: Array<{
+      name: string;
+      properties: Record<string, string | number>;
+    }> = [];
+    const listener = (event: Event) => {
+      events.push((event as CustomEvent).detail);
+    };
+    window.addEventListener(PRODUCT_EVENT_NAME, listener);
+    const user = userEvent.setup();
+    render(<LocationPermissionExperience />);
+
+    await user.click(screen.getByRole("button", { name: "Use my location" }));
+    const success = getCurrentPosition.mock.calls[0][0];
+    success({
+      coords: {
+        accuracy: 18,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        latitude: 15.4989,
+        longitude: 73.8278,
+        speed: null,
+        toJSON: () => ({}),
+      },
+      timestamp: Date.now(),
+      toJSON: () => ({}),
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Choose my adventure" }),
+    );
+    await user.click(screen.getByRole("radio", { name: /60 minutes/i }));
+    await user.click(screen.getByRole("radio", { name: /Culinary/i }));
+    await user.click(screen.getByRole("radio", { name: /Family/i }));
+    await user.click(screen.getByRole("button", { name: "Set my compass" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Your kind of mystery is ready.",
+      }),
+    ).toBeVisible();
+    expect(events).toContainEqual({
+      name: "setup_completed",
+      properties: {
+        duration_minutes: 60,
+        mood: "culinary",
+        party_mode: "family",
+      },
+    });
+
+    window.removeEventListener(PRODUCT_EVENT_NAME, listener);
   });
 
   it("refuses to begin from an unusably broad location", async () => {
