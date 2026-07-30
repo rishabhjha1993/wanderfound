@@ -29,6 +29,7 @@ import {
   type AdventureDuration,
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
+import { filterCandidates } from "@/lib/discovery/candidate-filters";
 import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
@@ -191,6 +192,8 @@ type MoodResult = {
   unknownOpening: number;
   commercial: number;
   candidates: PlaceCandidate[];
+  accepted: Set<string>;
+  rejections: Map<string, string>;
   curatedIds: string[];
   curationError?: string;
   error?: string;
@@ -332,6 +335,8 @@ async function auditOne(
     unknownOpening: 0,
     commercial: 0,
     candidates: [],
+    accepted: new Set(),
+    rejections: new Map(),
     curatedIds: [],
   };
 
@@ -380,16 +385,24 @@ async function auditOne(
       }
     }
 
+    const { accepted, rejected } = filterCandidates(unique);
     const curation = curator
-      ? await curate(curator, unique, location, mood, policy)
+      ? await curate(curator, accepted, location, mood, policy)
       : { curatedIds: [] };
 
     return {
       ...base,
       rawCount: raw.length,
       uniqueCount: unique.length,
-      conservativeCount: unique.filter(survivesConservativeFilters).length,
+      conservativeCount: accepted.length,
       candidates: unique,
+      accepted: new Set(accepted.map((place) => place.providerPlaceId)),
+      rejections: new Map(
+        rejected.map((rejection) => [
+          rejection.candidate.providerPlaceId,
+          rejection.reason,
+        ]),
+      ),
       ...curation,
     };
   } catch (error) {
@@ -403,28 +416,10 @@ async function auditOne(
   }
 }
 
-/**
- * A preview of WF-202a's "unknown is not permission" stance. This is the number
- * that matters: if it lands below the viability bar in ordinary neighbourhoods,
- * either the bar or the conservative default has to change, and it is far
- * cheaper to learn that here than after scoring and routing are built.
- *
- * Closure only disqualifies a place whose discovery needs its interior. A
- * chapel shut for the evening still has its carved door, and the second audit
- * ran at eleven at night, when counting every closed shopfront as unplayable
- * badly understated what Fontainhas actually offers.
- */
-function survivesConservativeFilters(candidate: PlaceCandidate) {
-  const reachable =
-    candidate.openingStatus !== "closed" || candidate.exteriorObservable;
-
-  return (
-    reachable &&
-    candidate.publicAccess !== "no" &&
-    candidate.purchaseRequired !== "yes" &&
-    candidate.hazards.length === 0
-  );
-}
+// The audit deliberately calls the real WF-202a filters rather than
+// approximating them, so the report cannot drift away from what the product
+// actually does. An earlier hand-rolled copy of these rules understated
+// playable candidates at Fontainhas by roughly half.
 
 async function writeReport(results: LocationResult[]) {
   const generatedAt = new Date().toISOString();
@@ -522,7 +517,9 @@ async function writeReport(results: LocationResult[]) {
       if (result.candidates.length > 0) {
         const selected = new Set(result.curatedIds);
 
-        lines.push("| Picked | Name | Category | Reviews | Opening | Access |");
+        lines.push(
+          "| Picked | Name | Category | Reviews | Opening | Rejected because |",
+        );
         lines.push("| --- | --- | --- | --- | --- | --- |");
 
         for (const candidate of result.candidates) {
@@ -536,7 +533,7 @@ async function writeReport(results: LocationResult[]) {
                 ? "—"
                 : String(candidate.reviewCount),
               candidate.openingStatus,
-              candidate.publicAccess,
+              result.rejections.get(candidate.providerPlaceId) ?? "",
               "",
             ].join(" | "),
           );

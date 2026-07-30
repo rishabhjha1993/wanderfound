@@ -198,5 +198,9 @@ function openingRank(candidate: PlaceCandidate) {
     return 0;
   }
 
+  if (candidate.openingStatus === "permanently_closed") {
+    return 3;
+  }
+
   return candidate.exteriorObservable ? 1 : 2;
 }

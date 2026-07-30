@@ -66,7 +66,13 @@ export const PlaceCandidateSchema = z
     categories: z.array(PlaceCategorySchema).min(1).max(12),
     coordinates: GeoCoordinateSchema,
     address: NonEmptyStringSchema.max(500).optional(),
-    openingStatus: z.enum(["open", "closed", "unknown"]),
+    /**
+     * `closed` means shut right now and likely open again later; a chapel in
+     * the evening. `permanently_closed` means the place is gone. Collapsing
+     * the two would either send players to a demolished building or discard
+     * every shopfront that happens to be shut tonight.
+     */
+    openingStatus: z.enum(["open", "closed", "permanently_closed", "unknown"]),
     publicAccess: z.enum(["yes", "no", "unknown"]),
     indoorOutdoor: z.enum(["indoor", "outdoor", "mixed", "unknown"]),
     purchaseRequired: z.enum(["yes", "no", "unknown"]),

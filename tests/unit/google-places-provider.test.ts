@@ -148,6 +148,55 @@ describe("GooglePlacesProvider", () => {
     expect(result).toEqual([]);
   });
 
+  // Treating every non-operational status as permanent discarded the Immaculate
+  // Conception Church, Panjim's cathedral, on a CLOSED_TEMPORARILY flag.
+  it("distinguishes a temporary closure from a place that is gone", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        Response.json(
+          {
+            places: [
+              {
+                id: "google-cathedral",
+                displayName: { text: "Immaculate Conception Church" },
+                location: { latitude: 15.4989, longitude: 73.8278 },
+                primaryType: "church",
+                types: ["church", "historical_landmark"],
+                businessStatus: "CLOSED_TEMPORARILY",
+                userRatingCount: 28059,
+              },
+              {
+                id: "google-gone",
+                displayName: { text: "A Demolished Landmark" },
+                location: { latitude: 15.499, longitude: 73.828 },
+                primaryType: "historical_landmark",
+                types: ["historical_landmark"],
+                businessStatus: "CLOSED_PERMANENTLY",
+                userRatingCount: 40,
+              },
+            ],
+          },
+          { status: 200 },
+        ),
+      ),
+    );
+    const provider = new GooglePlacesProvider({ apiKey: "secret", fetcher });
+
+    const result = await provider.nearby({
+      ...INPUT,
+      categories: ["religious", "heritage"],
+    });
+
+    expect(result[0]).toMatchObject({
+      providerPlaceId: "google-cathedral",
+      openingStatus: "closed",
+    });
+    expect(result[1]).toMatchObject({
+      providerPlaceId: "google-gone",
+      openingStatus: "permanently_closed",
+    });
+  });
+
   // The curator picked "CalRaid Nutrition Clinic" out of a food-led search.
   it("drops clinics and personal-services businesses from a food search", async () => {
     const fetcher = vi.fn<typeof fetch>(async () =>

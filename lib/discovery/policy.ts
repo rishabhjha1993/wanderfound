@@ -65,8 +65,19 @@ const MOOD_CATEGORIES: Record<AdventureMood, PlaceCategory[]> = {
  * we have no evidence it is worth walking to. Above the ceiling it is the
  * postcard everyone already photographs, which is the opposite of the mood.
  */
+/**
+ * How much corroboration a place needs before we treat its provider label as
+ * true. The audit returned a nail salon tagged as a historical landmark with
+ * four reviews, and a person's name tagged as a temple with none, and the
+ * curator selected the nail salon precisely because so few people had reviewed
+ * it. Below this bar a place is unverified, not undiscovered.
+ */
+export const CANDIDATE_FILTER_THRESHOLDS = {
+  minCorroboratingReviews: 5,
+} as const;
+
 export const OBSCURITY_THRESHOLDS = {
-  minReviewCount: 5,
+  minReviewCount: CANDIDATE_FILTER_THRESHOLDS.minCorroboratingReviews,
   maxReviewCount: 5_000,
 } as const;
 

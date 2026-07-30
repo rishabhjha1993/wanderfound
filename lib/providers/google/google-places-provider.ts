@@ -263,7 +263,15 @@ export class GooglePlacesProvider implements PlacesProvider {
 }
 
 function openingStatus(place: z.infer<typeof GooglePlaceSchema>) {
-  if (place.businessStatus && place.businessStatus !== "OPERATIONAL") {
+  // Only CLOSED_PERMANENTLY means the place is gone. Treating every
+  // non-operational status as permanent discarded the Immaculate Conception
+  // Church, Panjim's cathedral and its most photographed building, on the
+  // strength of a CLOSED_TEMPORARILY flag.
+  if (place.businessStatus === "CLOSED_PERMANENTLY") {
+    return "permanently_closed" as const;
+  }
+
+  if (place.businessStatus === "CLOSED_TEMPORARILY") {
     return "closed" as const;
   }
 
