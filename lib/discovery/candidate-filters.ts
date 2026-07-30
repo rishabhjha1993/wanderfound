@@ -12,12 +12,18 @@ import type { PlaceCandidate } from "@/lib/providers/domain";
  *
  * Every rule returns a reason code, because "no reliable adventure here yet" is
  * only an acceptable answer if we can say what was rejected and why.
+ *
+ * A place that charges for entry is deliberately not rejected. That reverses
+ * Section 7's original stance, which had removed every museum and gallery near
+ * Fontainhas including street-facing ones. `purchaseRequired` stays on the
+ * candidate so scoring can prefer free discoveries and so the stage prompt can
+ * require a clue completable from public ground: the place may cost money to
+ * enter, but finishing a stage must never depend on paying.
  */
 export type CandidateRejectionReason =
   | "permanently_closed"
   | "closed_and_interior_only"
   | "public_access_not_established"
-  | "purchase_required"
   | "unverified_identity"
   | "hazard_present"
   | "no_observable_feature";
@@ -67,14 +73,6 @@ const RULES: CandidateRule[] = [
       candidate.publicAccess === "yes"
         ? null
         : `Public access is "${candidate.publicAccess}" rather than established.`,
-  },
-  {
-    // Wanderfound never requires a player to buy anything to finish a stage.
-    reason: "purchase_required",
-    check: (candidate) =>
-      candidate.purchaseRequired === "no"
-        ? null
-        : `Reaching the discovery may require a purchase ("${candidate.purchaseRequired}").`,
   },
   {
     reason: "unverified_identity",

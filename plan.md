@@ -384,8 +384,14 @@ everything.
 - destination requires entering a religious/residential/private space;
 - coordinates or identity are ambiguous;
 - no visually verifiable public feature exists;
-- it would require buying something;
 - the only available fact is ungrounded model knowledge.
+
+A place that charges admission is **not** rejected. The earlier rule removed
+every museum and gallery around Fontainhas, including street-facing ones whose
+signage, doorway or facade is a perfectly fair thing to notice. The constraint
+moves from the place to the clue: a venue may cost money to enter, but no stage
+may require a purchase to complete, and scoring should still prefer a free
+discovery over a paid one.
 
 **Route-level — requires a real pedestrian route, evaluated after routing:**
 
@@ -401,9 +407,10 @@ by default.
 
 Culinary stages are allowed only when:
 
-- venue is confidently open;
+- venue is confidently open, or its exterior carries the discovery;
 - clue can be completed from a public area;
-- purchase is optional;
+- purchase is optional **for completing the stage**, though the venue itself may
+  charge for entry or for its food;
 - the stage does not require eating or drinking;
 - no health, allergy or dietary claim is generated;
 - the experience clearly labels commercial venues;
@@ -1292,6 +1299,12 @@ an assumption in this plan, not because it looked wrong on paper.
   shut for the evening still has a carved door and a plaque, and evenings are
   when travellers have unplanned time. Counting every closed shopfront as
   unplayable understated playable candidates at Fontainhas by roughly half.
+- Paid entry is no longer a rejection. Section 7 had removed every museum and
+  gallery in the Fontainhas pool, including street-facing ones whose signage,
+  doorway or facade is a perfectly fair thing to notice from the pavement. The
+  rule moves from the place to the clue: a venue may charge to enter, but no
+  stage may require a purchase to complete. `purchaseRequired` stays on the
+  candidate as scoring evidence, so a free discovery still outranks a paid one.
 - "Strange" means historical or culinary substance that visitors walk past, and
   is decided by the curator rather than by a threshold. Review count is given
   to the curator as evidence, not applied as a rule. The deterministic fallback
@@ -1308,6 +1321,14 @@ an assumption in this plan, not because it looked wrong on paper.
 - Party mode does not filter candidates. It is collected at setup and does not
   currently restrict which places may appear, so an alcohol-led venue can
   surface in family mode. Recorded as a known gap rather than an oversight.
+- A place that charges admission is no longer rejected, reversing Section 7's
+  original stance. Applied to live data that rule removed every museum and
+  gallery around Fontainhas, including street-facing ones whose signage,
+  doorway or facade is a fair thing to notice from the pavement. The constraint
+  moves from the place to the clue: a venue may cost money to enter, but no
+  stage may require a purchase to complete, and scoring should still prefer a
+  free discovery. `purchaseRequired` remains on the candidate so WF-204 can
+  express that preference and WF-302 can enforce the clue rule.
 - Provider data is noisier than the schema implies. The audit returned a nail
   salon tagged as a historical landmark, a person's name as a temple, and a
   nutrition clinic as a food shop, and the curator selected the nail salon on

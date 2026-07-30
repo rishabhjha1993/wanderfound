@@ -73,14 +73,14 @@ describe("candidate hard filters", () => {
       );
     });
 
-    it("rejects a place that would require buying something", () => {
-      expect(reasonFor({ purchaseRequired: "yes" })).toBe("purchase_required");
+    // Rejecting paid entry removed every museum and gallery around
+    // Fontainhas. The constraint belongs on the clue, not on the place.
+    it("keeps a place that charges for entry", () => {
+      expect(reasonFor({ purchaseRequired: "yes" })).toBeUndefined();
     });
 
-    it("rejects a place whose purchase expectation is unknown", () => {
-      expect(reasonFor({ purchaseRequired: "unknown" })).toBe(
-        "purchase_required",
-      );
+    it("keeps a place whose purchase expectation is unknown", () => {
+      expect(reasonFor({ purchaseRequired: "unknown" })).toBeUndefined();
     });
 
     // The audit returned a nail salon tagged as a historical landmark with four
@@ -154,7 +154,6 @@ describe("candidate hard filters", () => {
       "permanently_closed",
       "closed_and_interior_only",
       "public_access_not_established",
-      "purchase_required",
       "unverified_identity",
       "hazard_present",
       "no_observable_feature",
