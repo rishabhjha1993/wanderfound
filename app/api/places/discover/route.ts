@@ -6,12 +6,24 @@ import {
 } from "@/lib/adventure/setup-session";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
+import { log } from "@/lib/logger";
 import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import { GooglePlacesProvider } from "@/lib/providers/google";
+import { FixedWindowRateLimiter } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Every accepted request spends Google Places quota and may spend AI tokens.
+ * Authentication alone does not bound that cost, so a signed-in client is
+ * limited to a small burst of scouting requests per window.
+ */
+const discoveryRateLimiter = new FixedWindowRateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+});
 
 const DiscoverRequestSchema = z
   .object({
@@ -34,6 +46,23 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Sign in is required." },
       { status: 401 },
+    );
+  }
+
+  const userId = data.claims.sub;
+  const rateLimit = discoveryRateLimiter.check(userId);
+
+  if (!rateLimit.allowed) {
+    log("warn", "places_discovery_rate_limited", {
+      retry_after_seconds: rateLimit.retryAfterSeconds,
+    });
+
+    return NextResponse.json(
+      { error: "You are scouting a little too quickly. Please wait a moment." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
     );
   }
 

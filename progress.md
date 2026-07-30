@@ -12,16 +12,18 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-201 implementation — nearby-place retrieval**
-- Next ticket: **WF-201 live credential check, then WF-202 hard safety filters**
+- Latest completed ticket: **WF-206 — playability debug view**
+- Next ticket: **WF-203 — walking routes and duration matrix**
 
 Production is deployed and healthy. Google sign-in, foreground location,
 the custom map, adventure setup, provider contracts, and the worldwide
 Google Places + GPT-5.6 Sol discovery pipeline are built.
 
-Real place discovery is deployed but not yet activated because its two
-server-only credentials still need to be added to local development and
-Vercel:
+### Live discovery is active
+
+The two server-only credentials are configured in local development, so
+discovery now runs against real Google Places data and `gpt-5.6-sol`
+curation. **They are not yet in Vercel**, so production still returns 503.
 
 ```bash
 GOOGLE_MAPS_SERVER_API_KEY=
@@ -30,6 +32,21 @@ AI_TEXT_MODEL=gpt-5.6-sol
 ```
 
 Never commit the real key values or prefix them with `NEXT_PUBLIC_`.
+
+Real data immediately contradicted several assumptions; see the 30 July
+decision-log entry. The short version: two candidate fields were hardcoded to
+`"unknown"` and would have rejected every place on earth, government offices
+and casino boats were being offered as discoveries, and the "strange" mood
+returned Panjim's busiest restaurants. All corrected against observed output.
+
+### One honest caveat
+
+**The database has a schema but no writes.** All six tables and their
+row-level security policies exist in the Supabase migration, and no
+application code reads or writes any of them. Location and adventure setup
+live only in browser session storage. This is fine until Milestone 4, and
+is addressed by WF-207 at the end of Block 3, because stage progress and a
+paid unlock must never trust client state.
 
 ## ELI5 system map
 
@@ -65,8 +82,9 @@ Never commit the real key values or prefix them with `NEXT_PUBLIC_`.
 - [x] Made Google sign-in mandatory; no anonymous guest accounts are created.
 - [x] Added login callback, logout, protected-route redirects, returning-user
       redirects, and cookie-based session refresh.
-- [ ] Account deletion and dedicated expired-session recovery remain to be built.
-- [ ] Full authenticated-session lifecycle tests remain to be added.
+- [ ] Account deletion, dedicated expired-session recovery and full session
+      lifecycle tests are now tracked as WF-106 and must land before real
+      testers create accounts and upload photographs.
 
 ### Location and map
 
@@ -113,7 +131,8 @@ Never commit the real key values or prefix them with `NEXT_PUBLIC_`.
 - [x] Log failures using only a coarse location cell, never the key or precise
       player position.
 - [ ] Add the two private production credentials and run the first real Delhi
-      and Goa acceptance searches.
+      and Goa acceptance searches (WF-201a).
+- [ ] Rate-limit the discovery route before it can spend real quota (WF-201a).
 
 ## Latest verification
 
@@ -134,38 +153,53 @@ Latest pull request:
 
 ## Build order from here
 
-1. **Activate and test real discovery**
-   - Codex model: GPT-5.6 Sol.
-   - Effort: Medium.
-   - Add the Google server key and OpenAI project key.
-   - Test actual results in Delhi and Goa.
-   - Adjust type coverage only from real observations.
+Block 3 was re-sequenced after reviewing the built code against the plan.
+The candidate pool is now audited before logic is built on top of it, the
+debug view arrives while it is still useful, and safety filters are split so
+that route-dependent rules are written only once real routes exist.
 
-2. **WF-202 — Hard safety filters**
-   - Codex model: GPT-5.6 Sol.
+1. ~~**WF-201a — Live activation and candidate audit**~~ — done, except adding
+   the two keys to Vercel, which is still outstanding.
+
+2. ~~**WF-202a — Candidate-level hard filters**~~ — done. Seven named rules with
+   reason codes, running before the curator so no AI response can reinstate a
+   rejected candidate.
+
+3. ~~**WF-206 — Playability debug view**~~ — done. Visit
+   `/debug/playability` while signed in, locally or on a deployment with
+   `WANDERFOUND_DEBUG_TOOLS=true`. There is a "use my location" button, so this
+   is the tool to open while standing in a Goan street.
+
+4. **WF-203 — Walking routes and duration matrix**
    - Effort: High.
-   - Reject unsafe, inaccessible, private, purchase-required, or uncertain
-     candidates before AI sees them.
-   - Return a clear reason for every rejection.
+   - One pairwise duration matrix over survivors; full routes with geometry
+     only for the selected sequence. Roughly two routing calls per adventure.
 
-3. **WF-203 — Walking routes**
-   - Codex model: GPT-5.6 Sol.
+5. **WF-202b — Route-level safety filters**
    - Effort: High.
-   - Ask Google Routes for actual pedestrian paths.
-   - Reject no-route, unsafe, excessive-detour, and over-duration options.
+   - Motorway, unsafe crossing, hazard adjacency and unreachable destinations,
+     now that a real pedestrian route exists to judge them against.
 
-4. **WF-204 and WF-205 — Scoring and trail assembly**
-   - Codex model: GPT-5.6 Sol.
+6. **WF-204 and WF-205 — Scoring and sequence search**
    - Effort: High.
-   - Score variety, quality, accessibility, and walking fit.
-   - Find a playable combination or give an honest “not enough here” response.
+   - Score variety, quality, accessibility and walking fit.
+   - Greedy insertion plus 2-opt against the matrix; a playable sequence or an
+     honest “not enough here” response.
 
-5. **Milestone 3 — Grounded mystery writing**
-   - Codex model: GPT-5.6 Sol.
+7. **WF-207 — Server-authoritative session record**
+   - Effort: High.
+   - Persist the session and selection server-side; the client sees only the
+     current stage. Makes the later paywall tamper-resistant by construction.
+
+8. **Milestone 3 — Grounded mystery writing**
    - Effort: High.
    - Enrich approved places with sourced public facts.
    - Let Sol write the premise and clues using only approved material.
    - Validate every stage before showing it to the player.
+
+Also outstanding, before field testing with real testers:
+**WF-106 — account deletion, expired-auth recovery and session-lifecycle
+tests**, promoted out of WF-105 so it stops drifting.
 
 ## Explicitly not being built yet
 

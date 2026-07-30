@@ -17,6 +17,12 @@ const PROVIDER_ID = "google_places_new";
 const ENDPOINT = "https://places.googleapis.com/v1/places:searchNearby";
 const RESULT_LIMIT = 20;
 const DEFAULT_TIMEOUT_MS = 6_000;
+/**
+ * `userRatingCount` and `priceLevel` move this request into a costlier Google
+ * SKU tier. They earn it: review count is the only signal available for "off
+ * the beaten track", and price level is the only direct evidence of whether a
+ * place expects a purchase. Everything else here is already paid for.
+ */
 const FIELD_MASK = [
   "places.id",
   "places.displayName",
@@ -27,6 +33,8 @@ const FIELD_MASK = [
   "places.businessStatus",
   "places.currentOpeningHours.openNow",
   "places.googleMapsUri",
+  "places.userRatingCount",
+  "places.priceLevel",
 ].join(",");
 
 const GooglePlaceSchema = z
@@ -52,6 +60,8 @@ const GooglePlaceSchema = z
       .passthrough()
       .optional(),
     googleMapsUri: z.string().url().optional(),
+    userRatingCount: z.number().int().nonnegative().optional(),
+    priceLevel: z.string().optional(),
   })
   .passthrough();
 
@@ -136,7 +146,8 @@ export class GooglePlacesProvider implements PlacesProvider {
               radius: request.radiusMeters,
             },
           },
-          rankPreference: "POPULARITY",
+          rankPreference:
+            request.rankBy === "distance" ? "DISTANCE" : "POPULARITY",
         }),
         cache: "no-store",
         signal: controller.signal,
@@ -217,12 +228,16 @@ export class GooglePlacesProvider implements PlacesProvider {
       coordinates: place.location,
       ...(place.formattedAddress ? { address: place.formattedAddress } : {}),
       openingStatus: openingStatus(place),
-      publicAccess: "unknown" as const,
+      publicAccess: publicAccess(categories),
       indoorOutdoor: indoorOutdoor(categories),
-      purchaseRequired: "unknown" as const,
+      purchaseRequired: purchaseRequired(categories, place.priceLevel),
       commercialVenue: categories.some((category) =>
         ["culinary", "market"].includes(category),
       ),
+      exteriorObservable: exteriorObservable(categories),
+      ...(place.userRatingCount === undefined
+        ? {}
+        : { reviewCount: place.userRatingCount }),
       hazards: [],
       groundedFacts: [],
       visualSignals: googleTypes.slice(0, 20),
@@ -248,7 +263,15 @@ export class GooglePlacesProvider implements PlacesProvider {
 }
 
 function openingStatus(place: z.infer<typeof GooglePlaceSchema>) {
-  if (place.businessStatus && place.businessStatus !== "OPERATIONAL") {
+  // Only CLOSED_PERMANENTLY means the place is gone. Treating every
+  // non-operational status as permanent discarded the Immaculate Conception
+  // Church, Panjim's cathedral and its most photographed building, on the
+  // strength of a CLOSED_TEMPORARILY flag.
+  if (place.businessStatus === "CLOSED_PERMANENTLY") {
+    return "permanently_closed" as const;
+  }
+
+  if (place.businessStatus === "CLOSED_TEMPORARILY") {
     return "closed" as const;
   }
 
@@ -261,6 +284,85 @@ function openingStatus(place: z.infer<typeof GooglePlaceSchema>) {
   }
 
   return "unknown" as const;
+}
+
+/**
+ * Places API (New) has no field describing whether the public may approach a
+ * place, so these three properties were previously hardcoded to "unknown".
+ * That made every candidate fail WF-202a's "unknown is not permission" rule,
+ * which would have rejected the entire world while looking healthy in logs.
+ *
+ * Category is a weaker signal than a real access field, but it is a genuine
+ * one and it is honest about its limits: anything outside these known-safe
+ * shapes still returns "unknown" rather than guessing permission.
+ */
+const PUBLICLY_APPROACHABLE: PlaceCandidate["categories"] = [
+  "garden",
+  "heritage",
+  "architecture",
+  "public_art",
+  "viewpoint",
+  "waterfront",
+  "religious",
+  "civic",
+  "market",
+];
+
+function publicAccess(categories: PlaceCandidate["categories"]) {
+  if (categories.some((category) => PUBLICLY_APPROACHABLE.includes(category))) {
+    return "yes" as const;
+  }
+
+  if (categories.includes("culinary") || categories.includes("museum")) {
+    return "yes" as const;
+  }
+
+  return "unknown" as const;
+}
+
+/**
+ * Wanderfound never requires a purchase, so this describes whether reaching
+ * the *discovery* costs money, not whether the venue sells anything. A bakery
+ * window, a museum facade and a market entrance are all observable for free;
+ * only a reported price level on a place with no free exterior reading counts
+ * against it.
+ */
+function purchaseRequired(
+  categories: PlaceCandidate["categories"],
+  priceLevel: string | undefined,
+) {
+  if (exteriorObservable(categories)) {
+    return "no" as const;
+  }
+
+  if (priceLevel && priceLevel !== "PRICE_LEVEL_FREE") {
+    return "yes" as const;
+  }
+
+  return "unknown" as const;
+}
+
+/**
+ * Whether the discovery can be made from public ground. A church closed for
+ * the evening still has a carved door and a facade, and Goan evenings are
+ * exactly when travellers have unplanned time, so exterior-observable places
+ * stay playable after closing.
+ */
+function exteriorObservable(categories: PlaceCandidate["categories"]) {
+  return categories.some((category) =>
+    [
+      "garden",
+      "heritage",
+      "architecture",
+      "public_art",
+      "viewpoint",
+      "waterfront",
+      "religious",
+      "civic",
+      "market",
+      "culinary",
+    ].includes(category),
+  );
 }
 
 function indoorOutdoor(categories: PlaceCandidate["categories"]) {

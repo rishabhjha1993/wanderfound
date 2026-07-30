@@ -314,12 +314,20 @@ interface PlacesProvider {
 
 interface RoutingProvider {
   walkingRoute(input: WalkingRouteInput): Promise<WalkingRoute>;
+  walkingMatrix(input: WalkingMatrixInput): Promise<WalkingMatrix>;
 }
 
 interface KnowledgeProvider {
   enrich(place: PlaceCandidate): Promise<GroundedPlaceFacts>;
 }
 ```
+
+`walkingMatrix` exists to keep routing cost bounded. Combination search must never
+call `walkingRoute` per candidate pair: with twenty surviving candidates that is
+hundreds of billable calls per generation. Instead request one pairwise duration
+matrix over the filtered candidate set, run all scoring and ordering against that
+in-memory matrix, and call `walkingRoute` only for the four legs of the finally
+selected trail. Budget: approximately two routing requests per generated adventure.
 
 Recommended MVP defaults:
 
@@ -364,26 +372,45 @@ type PlaceCandidate = {
 
 ### Hard filters
 
-Reject a candidate if:
+These filters split into two groups by the data they actually require. Implementing
+them as one pass is a mistake: the route-level rules cannot be evaluated from a
+places response, and writing them there produces filter functions that silently pass
+everything.
+
+**Candidate-level — derivable from the places response alone:**
 
 - confirmed closed during the expected visit;
 - private, ticketed or access-restricted in V0;
-- route requires a motorway, unsafe crossing or vehicle transport;
-- in/adjacent to water, cliff, railway, construction or another obvious hazard;
-- place cannot be reached from a pedestrian route;
 - destination requires entering a religious/residential/private space;
 - coordinates or identity are ambiguous;
 - no visually verifiable public feature exists;
-- it would require buying something;
 - the only available fact is ungrounded model knowledge.
+
+A place that charges admission is **not** rejected. The earlier rule removed
+every museum and gallery around Fontainhas, including street-facing ones whose
+signage, doorway or facade is a perfectly fair thing to notice. The constraint
+moves from the place to the clue: a venue may cost money to enter, but no stage
+may require a purchase to complete, and scoring should still prefer a free
+discovery over a paid one.
+
+**Route-level — requires a real pedestrian route, evaluated after routing:**
+
+- route requires a motorway, unsafe crossing or vehicle transport;
+- in/adjacent to water, cliff, railway, construction or another obvious hazard;
+- place cannot be reached from a pedestrian route.
+
+Unknown is not permission. Where a provider field is absent or ambiguous, the
+conservative branch applies and the candidate is rejected or demoted, never admitted
+by default.
 
 ### Culinary rules
 
 Culinary stages are allowed only when:
 
-- venue is confidently open;
+- venue is confidently open, or its exterior carries the discovery;
 - clue can be completed from a public area;
-- purchase is optional;
+- purchase is optional **for completing the stage**, though the venue itself may
+  charge for entry or for its food;
 - the stage does not require eating or drinking;
 - no health, allergy or dietary claim is generated;
 - the experience clearly labels commercial venues;
@@ -454,9 +481,9 @@ feature in the surroundings.
 2. Retrieve candidate places within a duration-derived radius.
 3. Apply hard safety and accessibility filters.
 4. Enrich the strongest candidates with grounded facts.
-5. Create several possible five-stop combinations.
-6. request walking routes and calculate real durations.
-7. score combinations and select the best route.
+5. Request one pairwise walking-duration matrix over the surviving candidates.
+6. Search for the best five-stop sequence against that matrix.
+7. Request full walking routes with geometry for the selected sequence only.
 8. give the AI only the selected candidate objects and permitted facts.
 9. generate structured trail JSON.
 10. validate the JSON against schema and business rules.
@@ -922,12 +949,16 @@ Acceptance:
 ### Milestone 2 — Candidate and routing engine
 
 - [x] Implement the real Google `PlacesProvider`.
-- [ ] Implement the real Google `RoutingProvider`.
+- [x] Audit real candidate quality across contrasting coordinates.
+- [x] Apply candidate-level hard filters.
+- [x] Build the playability debug view.
+- [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
+- [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
-- [ ] Apply hard filters.
-- [ ] Request walking routes.
-- [ ] Score candidate combinations.
+- [ ] Score candidates.
+- [ ] Search for the best five-stop sequence.
 - [ ] Return a playability decision.
+- [ ] Persist a server-authoritative session record.
 - [x] Add mocked-provider and provider-boundary tests.
 
 Acceptance:
@@ -1242,6 +1273,108 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-07-30 — First live provider data
+
+The candidate audit ran against Google Places for the first time, at Fontainhas
+in Panjim. Everything below was corrected because observed output contradicted
+an assumption in this plan, not because it looked wrong on paper.
+
+- `publicAccess` and `purchaseRequired` were hardcoded to `"unknown"` in the
+  Google normaliser. Against WF-202a's "unknown is not permission" rule that
+  would have rejected every candidate in every location while logging a healthy
+  pipeline. Both are now derived from category, and anything outside a known
+  shape still returns `"unknown"` rather than guessing permission.
+- A type blocklist now removes places that are never a discovery whatever else
+  Google tags them: the audit returned the Regional Transport Office, an Aadhaar
+  Seva Kendra, the Regional Passport Office and the PWD headquarters as
+  "historical", and three offshore casino boats as "beautiful". Health and
+  personal-services types were added after the curator picked a nutrition
+  clinic. Lodging is deliberately not blocked, because Goa's old boarding
+  houses are exactly what this product should notice.
+- `tourist_attraction` and other generic types may support a category another
+  type already established, but may never be the reason a place enters the
+  pool. Google applies it to cathedrals, casinos and whole neighbourhoods, and
+  it had turned the entire "strange" mood into a viewpoint soup.
+- A closed place stays playable when its discovery is on its exterior. A chapel
+  shut for the evening still has a carved door and a plaque, and evenings are
+  when travellers have unplanned time. Counting every closed shopfront as
+  unplayable understated playable candidates at Fontainhas by roughly half.
+- Paid entry is no longer a rejection. Section 7 had removed every museum and
+  gallery in the Fontainhas pool, including street-facing ones whose signage,
+  doorway or facade is a perfectly fair thing to notice from the pavement. The
+  rule moves from the place to the clue: a venue may charge to enter, but no
+  stage may require a purchase to complete. `purchaseRequired` stays on the
+  candidate as scoring evidence, so a free discovery still outranks a paid one.
+- "Strange" means historical or culinary substance that visitors walk past, and
+  is decided by the curator rather than by a threshold. Review count is given
+  to the curator as evidence, not applied as a rule. The deterministic fallback
+  keeps numeric bounds because something has to stand in for taste when the AI
+  is unavailable.
+- Ranking shapes the pool, not the selection. Nearby Search returns at most
+  twenty results under one ranking, so popularity ranking handed the curator
+  Panjim's twenty busiest restaurants with no overlooked place to choose from.
+  Obscurity-seeking moods rank by distance, which is popularity-neutral.
+- A mood spanning two kinds of place searches each side separately and merges,
+  because one search cannot represent both: a single request around Fontainhas
+  returned thirteen cafes, six shops and one chapel. Splitting it produced five
+  categories across the same twenty results, at one extra provider call.
+- Party mode does not filter candidates. It is collected at setup and does not
+  currently restrict which places may appear, so an alcohol-led venue can
+  surface in family mode. Recorded as a known gap rather than an oversight.
+- A place that charges admission is no longer rejected, reversing Section 7's
+  original stance. Applied to live data that rule removed every museum and
+  gallery around Fontainhas, including street-facing ones whose signage,
+  doorway or facade is a fair thing to notice from the pavement. The constraint
+  moves from the place to the clue: a venue may cost money to enter, but no
+  stage may require a purchase to complete, and scoring should still prefer a
+  free discovery. `purchaseRequired` remains on the candidate so WF-204 can
+  express that preference and WF-302 can enforce the clue rule.
+- Provider data is noisier than the schema implies. The audit returned a nail
+  salon tagged as a historical landmark, a person's name as a temple, and a
+  nutrition clinic as a food shop, and the curator selected the nail salon on
+  the strength of its low review count. Identity confidence is therefore a
+  WF-202a hard filter, not a curator concern: a place with almost no
+  corroboration is unverified rather than undiscovered.
+
+### 2026-07-29 — Block 3 review
+
+A review of the implemented code against this plan, before spending the first rupee
+of provider quota, produced the following corrections.
+
+- Section 7's hard filters are split into candidate-level rules, derivable from a
+  places response, and route-level rules, which require a real pedestrian route.
+  Google Places (New) returns types, business status, opening hours, accessibility
+  options and price level; it does not report cliffs, railways, construction or
+  unsafe crossings. Implementing all filters in one pass before routing exists would
+  produce rules that silently pass every candidate while appearing to enforce safety.
+- `RoutingProvider` gains `walkingMatrix`. Combination search calling `walkingRoute`
+  per candidate pair would cost hundreds of billable requests per generated
+  adventure. One duration matrix over the filtered set, with full routes fetched only
+  for the selected sequence, brings this to roughly two routing requests.
+- WF-205 is specified as a greedy insertion plus 2-opt improvement against the
+  duration matrix rather than an unspecified bounded combination search. This is
+  deterministic, unit-testable and has no factorial behaviour to prune.
+- WF-206, the playability debug view, moves from the end of Block 3 to immediately
+  after the first filter ticket. Every ticket after it is diagnosed through it.
+- WF-201a is inserted to activate live credentials, rate-limit the discovery route
+  and audit real candidate quality before scoring and routing are built on
+  assumptions about the candidate pool. The mood-to-category mapping may only be
+  corrected from observed provider output.
+- The audit defaults to one location, Fontainhas in Panjim, rather than a guessed
+  list of fifteen. Evidence about how the engine behaves across different kinds of
+  place should come from real sessions run where the founder actually is, which
+  costs nothing extra and reflects genuine use. The wider coordinate list remains in
+  the script behind `--all` for when a specific question needs it.
+- WF-207 introduces server-authoritative session records at the end of Block 3. The
+  database schema exists but no application code writes to it, and all state lives in
+  browser session storage. Progress persistence and a paid unlock cannot trust client
+  state, so the write boundary is introduced before Epic 3 rather than repaired later.
+- Account lifecycle hardening is promoted from unchecked sub-items of WF-105 into
+  WF-106, and is treated as a field-testing prerequisite because testers will create
+  real accounts and upload photographs.
+- The discovery route had no rate limit while requiring authentication and spending
+  provider quota per call. This is fixed in the same change that adds the keys.
+
 ### 2026-07-29
 
 - GPS accuracy is classified consistently as strong (≤25 m), usable (≤100 m),
@@ -1546,17 +1679,33 @@ Depends on: WF-104
 - [x] Require authentication before setup and adventure routes.
 - [x] Configure Supabase Auth with Google OAuth and PKCE.
 - [x] Add sign-in, callback and logout.
-- [ ] Add account deletion and dedicated expired-auth recovery.
 - [x] Redirect signed-out protected-route requests to sign-in.
 - [x] Redirect signed-in sign-in requests back to the adventure flow.
-- [ ] Add authenticated, signed-out and session-lifecycle tests.
 
 Done when:
 
 - refresh preserves the signed-in session and setup;
-- expired or malformed sessions recover safely;
 - a returning Google user can resume their active adventure;
 - changing a URL or client payload cannot claim another user's adventure.
+
+#### WF-106 — Account lifecycle hardening
+
+Depends on: WF-105
+
+Promoted out of WF-105 so it cannot sit indefinitely as trailing unchecked items of
+an otherwise complete ticket. This is a prerequisite for field testing with real
+testers, not polish: strangers will create accounts and upload photographs of
+themselves and their surroundings, and must be able to remove both.
+
+- [ ] Add account deletion that removes profile, sessions, progress and stored photos.
+- [ ] Add dedicated expired-auth recovery rather than a generic error.
+- [ ] Add authenticated, signed-out and session-lifecycle tests.
+- [ ] Confirm deletion cascades honour row-level security.
+
+Done when:
+
+- expired or malformed sessions recover safely;
+- a tester can delete their account and no owned row or photo survives it.
 
 ### Epic 2 — Candidate discovery and playability
 
@@ -1596,43 +1745,125 @@ Implementation is complete against deterministic and provider-shaped fixtures. T
 live urban acceptance check remains pending until the server-only Google Places key is
 configured in local development and Vercel.
 
-#### WF-202 — Deterministic hard filters
+#### WF-201a — Live activation and candidate audit
 
 Depends on: WF-201
 
-- [ ] Implement every hard filter from Section 7 as a named rule.
-- [ ] Return a reason code for every rejection.
-- [ ] Treat unknown access conservatively.
-- [ ] Add special handling for water, railway, motorway, cliff and private-property categories.
-- [ ] Add religious-space boundary rules.
-- [ ] Add purchase-not-required rules for culinary candidates.
+Nothing in WF-201 has ever run against real provider data. Before any scoring,
+routing or trail logic is built on top of the candidate pool, the pool itself must be
+inspected at real coordinates. If Goan beach villages return mostly restaurants and
+hotels, the four-mood category mapping and the eight-candidate viability bar are
+wrong, and every ticket built above them inherits that error.
+
+- [x] Add the server-only Google Places and AI keys to local development and Vercel.
+      Registered in both, but Vercel carries a misspelled `AI_TEXT_MODE` and no
+      deployment has been made since, so production is not yet running on them.
+- [x] Confirm the configured text model resolves on the project before relying on it.
+- [x] Add a per-user rate limit to the discovery route.
+- [x] Record which curator produced each selection so silent AI fallback is visible.
+- [x] Run the audit at Fontainhas, Panjim across all four moods.
+- [x] Review the report and correct the mood mapping from real observations only.
+- [ ] Gather wider evidence from real sessions at the founder's own location.
+      Needs field use in Goa rather than more code.
+
+Done when:
+
+- a live urban location returns normalised candidates, satisfying WF-201's
+  outstanding acceptance criterion;
+- the founder has read real candidate output rather than fixture output;
+- a signed-in client cannot exhaust provider quota in a loop.
+
+#### WF-202a — Candidate-level hard filters
+
+Depends on: WF-201a
+
+Implements only the filters derivable from a places response. Route-dependent rules
+belong to WF-202b and must not be stubbed here.
+
+- [x] Implement each candidate-level filter from Section 7 as a named rule.
+- [x] Return a reason code for every rejection.
+- [x] Treat unknown access, unknown opening and unknown identity conservatively.
+- [ ] Add religious, residential and private-space boundary rules. Religious
+      places currently pass as exterior-observable and private ones are removed
+      by the type blocklist, so no rule names this boundary explicitly yet.
+- [x] Add purchase-not-required rules for culinary candidates.
+- [x] Reject candidates with no visually verifiable public feature. Present as a
+      guard: Google-normalised candidates always carry visual signals, so this
+      fires only for another provider or a fixture.
+- [x] Reject candidates whose identity is not corroborated enough to trust.
+      The audit returned a nail salon tagged as a historical landmark and a
+      person's name as a temple, and the curator picked the nail salon because
+      almost nobody had reviewed it. Too little corroboration means unverified,
+      not undiscovered.
 - [ ] Unit-test each filter independently.
 
 Done when:
 
 - a rejected candidate explains exactly why it failed;
-- unsafe fixtures cannot be restored by an AI response.
+- unsafe fixtures cannot be restored by an AI response;
+- no filter silently returns true because its input data does not exist.
 
-#### WF-203 — Walking-route retrieval
+#### WF-206 — Playability debug view
 
-Depends on: WF-200, WF-202
+Depends on: WF-202a
 
-- [ ] Request real walking routes between points.
+Deliberately built early. Every ticket from here to WF-205 is diagnosed through this
+view, and building it last means debugging the whole engine through server logs.
+
+- [x] Build a development-only view of retrieved, rejected and selected places.
+- [x] Display rejection reasons and scoring components as each becomes available.
+      Scoring components arrive with WF-204.
+- [ ] Display route duration and geometry once routing exists. Waiting on WF-203.
+- [x] Display which curator produced the selection, and say so plainly when Sol
+      was requested but the deterministic curator ran instead.
+- [x] Redact provider secrets. The route returns typed provider failure codes
+      and never a provider message or key.
+- [x] Protect the route outside local development. Always available outside
+      production; a deployment needs `WANDERFOUND_DEBUG_TOOLS=true`, and an
+      authenticated session is required either way.
+
+Done when:
+
+- the founder can diagnose a bad trail without reading server logs.
+
+#### WF-203 — Walking routes and duration matrix
+
+Depends on: WF-200, WF-202a
+
+- [ ] Add `walkingMatrix` to the routing contract and both mock and Google providers.
+- [ ] Request one pairwise duration matrix over surviving candidates.
+- [ ] Request full walking routes with geometry for a selected sequence only.
 - [ ] Preserve Google Routes steps and route geometry for exact on-screen guidance.
 - [ ] Reject routes with no pedestrian solution.
 - [ ] Record route duration, distance and geometry.
 - [ ] Handle provider timeout and rate limits.
 - [ ] Add maximum detour and total-duration rules.
-- [ ] Add route fixtures for success, no-route and excessive-duration cases.
+- [ ] Add fixtures for success, no-route, unreachable-pair and excessive-duration cases.
 
 Done when:
 
 - straight-line distance is never presented as walking duration;
-- a failed route removes the relevant combination.
+- a failed route removes the relevant sequence;
+- generating one adventure costs approximately two routing requests, not hundreds.
+
+#### WF-202b — Route-level safety filters
+
+Depends on: WF-203
+
+- [ ] Reject routes requiring a motorway, unsafe crossing or vehicle transport.
+- [ ] Reject destinations adjacent to water, cliff, railway or construction hazards.
+- [ ] Reject candidates unreachable by any pedestrian route.
+- [ ] Return a reason code for every rejection, consistent with WF-202a.
+- [ ] Unit-test each rule against route fixtures.
+
+Done when:
+
+- an unreachable or unsafe destination cannot enter a trail;
+- rejection reasons from both filter stages read as one vocabulary.
 
 #### WF-204 — Candidate scoring
 
-Depends on: WF-202, WF-203
+Depends on: WF-202a, WF-203
 
 - [ ] Encode scoring weights in one configuration module.
 - [ ] Score distinctiveness, confidence, accessibility, diversity and route contribution.
@@ -1646,37 +1877,51 @@ Done when:
 - the same candidate set produces the same ranking;
 - scoring can be inspected without reading model prose.
 
-#### WF-205 — Trail-combination search
+#### WF-205 — Trail-sequence search
 
 Depends on: WF-204
 
-- [ ] Generate bounded five-stop combinations.
-- [ ] Avoid factorial explosion through pruning.
-- [ ] Request/compose routes for viable combinations only.
-- [ ] Require three or more discovery categories.
+This is an orienteering problem — collect the most valuable stops within a travel
+budget — not an exhaustive combination search. Specify the algorithm rather than
+leaving "bounded combinations with pruning" to be invented at implementation time.
+
+- [ ] Seed the sequence with the highest-scoring eligible candidate.
+- [ ] Greedily add the stop maximising score per added walking minute.
+- [ ] Enforce the three-category diversity rule during selection, not afterwards.
+- [ ] Improve the ordering with 2-opt against the duration matrix.
 - [ ] Fit the chosen duration with a safety buffer.
-- [ ] Select the best combination with a score breakdown.
-- [ ] Return a truthful refusal if none qualifies.
+- [ ] Return the selected sequence with a score breakdown.
+- [ ] Return a truthful refusal if no sequence qualifies.
+- [ ] Expand the radius once within the duration limit before refusing.
 
 Done when:
 
 - urban fixtures produce a plausible five-stop ordering;
 - sparse/unsafe fixtures return a clear unsupported-area result;
+- the same candidate set and matrix always produce the same sequence;
 - no model call is required to decide physical viability.
 
-#### WF-206 — Playability debug view
+#### WF-207 — Server-authoritative session record
 
 Depends on: WF-205
 
-- [ ] Build a development-only view of retrieved, rejected and selected places.
-- [ ] Display rejection reasons and scoring components.
-- [ ] Display route duration and geometry.
-- [ ] Redact provider secrets.
-- [ ] Protect the route outside local development.
+The database schema exists and no application code writes to it; location and setup
+live only in browser session storage. That is survivable now and unacceptable from
+Milestone 4 onward, because progress persistence and a paid unlock cannot trust
+client state. Introducing the write boundary here keeps Epic 4 small and makes the
+paywall tamper-resistant by construction rather than by later repair.
+
+- [ ] Persist the adventure session, selection and chosen sequence server-side.
+- [ ] Own every row by the verified `auth.uid()` from creation onward.
+- [ ] Return only the current stage view to the client, never the full trail.
+- [ ] Keep the destination name and clue answer server-side until verification.
+- [ ] Verify row-level security with an owner and a non-owner test.
+- [ ] Resume an active session after refresh or a new device sign-in.
 
 Done when:
 
-- the founder can diagnose a bad trail without reading server logs.
+- no client payload or URL change can reveal an unearned stage;
+- a refreshed browser resumes from the server record, not session storage.
 
 ### Epic 3 — Grounding and mystery generation
 
@@ -2190,6 +2435,9 @@ Done when:
 This is a sequence for focus, not a promise that every item fits perfectly into a day.
 Codex should stop at the end of each block, run checks and leave a testable deployment.
 
+Block 3 was re-sequenced and extended after the WF-201 review; day numbers in Block 4
+and later shift by roughly three days and should be read as order, not dates.
+
 Use **GPT-5.6 Sol** for every remaining Codex implementation stage because that is the
 available model. Use **Medium effort** for documentation, credentials and narrow
 configuration checks. Use **High effort** for provider integrations, safety filters,
@@ -2210,8 +2458,9 @@ Output: beautiful arrival screen deployed over HTTPS.
 
 ### Block 2 — Location and setup
 
-Status: **core experience complete and deployed**. Account deletion, dedicated
-expired-session recovery and full auth-lifecycle tests remain as hardening work.
+Status: **core experience complete and deployed**. Account lifecycle hardening was
+promoted out of WF-105 into WF-106 and must land before field testing with real
+testers.
 
 - Day 5: WF-100, WF-101.
 - Day 6: WF-102.
@@ -2222,18 +2471,28 @@ Output: user grants location, sees the branded map and chooses an adventure.
 
 ### Block 3 — Deterministic playability engine
 
-Status: **WF-200 and WF-201 implementation complete**. The first live Google/Sol
-acceptance search is waiting for server credentials. WF-202 is the next build ticket.
+Status: **WF-200 and WF-201 implementation complete against fixtures only**. No code
+has run against live provider data. WF-201a is the next build ticket, and it gates
+everything after it.
+
+Re-sequenced from the original plan for three reasons: the candidate pool is audited
+before logic is built on top of it; the debug view arrives early enough to be useful
+while building the engine rather than after it; and the filters are split so that
+route-dependent rules are written only once real routes exist.
 
 - Day 9: WF-200.
 - Day 10: WF-201.
-- Day 11: WF-202.
-- Day 12: WF-203.
-- Day 13: WF-204.
-- Day 14–15: WF-205.
-- Day 16: WF-206 and three-location evaluation.
+- Day 11: WF-201a — activation, rate limit and candidate audit.
+- Day 12: WF-202a — candidate-level filters.
+- Day 13: WF-206 — debug view.
+- Day 14: WF-203 — routes and duration matrix.
+- Day 15: WF-202b — route-level safety filters.
+- Day 16: WF-204 — scoring.
+- Day 17–18: WF-205 — sequence search.
+- Day 19: WF-207 — server-authoritative session record.
 
-Output: the system selects a safe five-stop route or refuses truthfully, without AI narrative.
+Output: the system selects a safe five-stop route or refuses truthfully, without AI
+narrative, and persists that decision server-side.
 
 ### Block 4 — Grounded mystery
 

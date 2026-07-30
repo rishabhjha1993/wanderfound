@@ -66,11 +66,30 @@ export const PlaceCandidateSchema = z
     categories: z.array(PlaceCategorySchema).min(1).max(12),
     coordinates: GeoCoordinateSchema,
     address: NonEmptyStringSchema.max(500).optional(),
-    openingStatus: z.enum(["open", "closed", "unknown"]),
+    /**
+     * `closed` means shut right now and likely open again later; a chapel in
+     * the evening. `permanently_closed` means the place is gone. Collapsing
+     * the two would either send players to a demolished building or discard
+     * every shopfront that happens to be shut tonight.
+     */
+    openingStatus: z.enum(["open", "closed", "permanently_closed", "unknown"]),
     publicAccess: z.enum(["yes", "no", "unknown"]),
     indoorOutdoor: z.enum(["indoor", "outdoor", "mixed", "unknown"]),
     purchaseRequired: z.enum(["yes", "no", "unknown"]),
     commercialVenue: z.boolean(),
+    /**
+     * Whether the discovery can be made from public ground without entering.
+     * A church that has closed for the evening still has a carved door, a
+     * plaque and a facade, and remains playable when this is true.
+     */
+    exteriorObservable: z.boolean(),
+    /**
+     * Provider review count, used as an "off the beaten track" signal. Absent
+     * when the provider did not report one. Low counts mean obscure rather
+     * than bad; zero-count places are usually unverified and are not treated
+     * as obscure gems.
+     */
+    reviewCount: z.number().int().nonnegative().optional(),
     hazards: z.array(PlaceHazardSchema).max(12),
     groundedFacts: z.array(GroundedFactSchema).max(20),
     visualSignals: z.array(NonEmptyStringSchema.max(240)).max(20),
@@ -103,6 +122,18 @@ export const NearbyPlacesInputSchema = z
       .trim()
       .regex(/^[A-Z]{2}$/)
       .optional(),
+    /**
+     * This shapes the candidate pool, not the final selection — choosing is
+     * the curator's job.
+     *
+     * It matters because Nearby Search returns at most twenty results and
+     * always applies a ranking. Asked for popular food places near Fontainhas
+     * it returns Panjim's twenty busiest restaurants, so a curator looking for
+     * somewhere off the beaten track has no such place to choose from. Ranking
+     * by distance is popularity-neutral and puts small, overlooked places in
+     * front of the curator.
+     */
+    rankBy: z.enum(["popularity", "distance"]).default("popularity"),
   })
   .strict();
 
@@ -178,7 +209,11 @@ export type GroundedFact = z.infer<typeof GroundedFactSchema>;
 export type PlaceCategory = z.infer<typeof PlaceCategorySchema>;
 export type PlaceHazard = z.infer<typeof PlaceHazardSchema>;
 export type PlaceCandidate = z.infer<typeof PlaceCandidateSchema>;
-export type NearbyPlacesInput = z.infer<typeof NearbyPlacesInputSchema>;
+/**
+ * The input type, so callers may omit fields that carry a schema default;
+ * provider implementations read the parsed output, where they are present.
+ */
+export type NearbyPlacesInput = z.input<typeof NearbyPlacesInputSchema>;
 export type WalkingRouteInput = z.infer<typeof WalkingRouteInputSchema>;
 export type WalkingRouteStep = z.infer<typeof WalkingRouteStepSchema>;
 export type WalkingRoute = z.infer<typeof WalkingRouteSchema>;

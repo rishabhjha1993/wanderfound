@@ -17,6 +17,11 @@ export const MOCK_PROVIDER_ATTRIBUTION: ProviderAttribution = {
   retrievedAt: RETRIEVED_AT,
 };
 
+/**
+ * Review counts deliberately span the obscurity thresholds: a couple below the
+ * floor where a place is unverified rather than undiscovered, several inside
+ * the off-the-beaten-track band, and one famous enough to be the postcard.
+ */
 const FIXTURE_DEFINITIONS: Array<{
   id: string;
   name: string;
@@ -24,6 +29,7 @@ const FIXTURE_DEFINITIONS: Array<{
   latitude: number;
   longitude: number;
   visualSignal: string;
+  reviewCount: number;
 }> = [
   {
     id: "fixture-arch",
@@ -32,6 +38,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.4992,
     longitude: 73.8271,
     visualSignal: "A coral arch with three carved circles",
+    reviewCount: 240,
   },
   {
     id: "fixture-garden",
@@ -40,6 +47,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.5001,
     longitude: 73.8265,
     visualSignal: "Five yellow lantern shapes beside a public path",
+    reviewCount: 1800,
   },
   {
     id: "fixture-mural",
@@ -48,6 +56,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.4978,
     longitude: 73.8269,
     visualSignal: "A blue wall painting with a large paper boat",
+    reviewCount: 42,
   },
   {
     id: "fixture-market",
@@ -56,6 +65,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.4984,
     longitude: 73.829,
     visualSignal: "A covered public arcade with red hanging signs",
+    reviewCount: 860,
   },
   {
     id: "fixture-clock",
@@ -64,6 +74,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.5004,
     longitude: 73.8292,
     visualSignal: "A public clock face with a green border",
+    reviewCount: 3,
   },
   {
     id: "fixture-steps",
@@ -72,6 +83,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.4973,
     longitude: 73.8282,
     visualSignal: "A broad outdoor staircase with patterned tiles",
+    reviewCount: 17,
   },
   {
     id: "fixture-waterfront",
@@ -80,6 +92,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.501,
     longitude: 73.8278,
     visualSignal: "A brass compass set into a public promenade",
+    reviewCount: 9400,
   },
   {
     id: "fixture-viewpoint",
@@ -88,6 +101,7 @@ const FIXTURE_DEFINITIONS: Array<{
     latitude: 15.4969,
     longitude: 73.8262,
     visualSignal: "A square public lookout frame facing west",
+    reviewCount: 2,
   },
 ];
 
@@ -108,6 +122,8 @@ export const MOCK_PLACE_CANDIDATES: PlaceCandidate[] = FIXTURE_DEFINITIONS.map(
     indoorOutdoor: "outdoor",
     purchaseRequired: "no",
     commercialVenue: fixture.category === "market",
+    exteriorObservable: true,
+    reviewCount: fixture.reviewCount,
     hazards: [],
     groundedFacts: [makeFixtureFact(fixture.id, fixture.name)],
     visualSignals: [fixture.visualSignal],
