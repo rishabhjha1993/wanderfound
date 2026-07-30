@@ -34,28 +34,50 @@ export async function discoverNearbyPlaces({
 }) {
   const policy = getDiscoveryPolicy(input.durationMinutes, input.mood);
 
-  let candidates;
+  /**
+   * A mood that spans two kinds of place searches each side separately, so
+   * that neither can take the whole result list. Each group gets an equal
+   * share of the candidate budget.
+   */
+  const perGroupLimit = Math.max(
+    1,
+    Math.floor(policy.candidateLimit / policy.searchGroups.length),
+  );
+  const candidates = [];
+  const failures: unknown[] = [];
 
-  try {
-    candidates = await placesProvider.nearby({
-      origin: input.origin,
-      radiusMeters: policy.radiusMeters,
-      maxResults: policy.candidateLimit,
-      categories: policy.categories,
-      languageCode: input.languageCode,
-      ...(input.regionCode ? { regionCode: input.regionCode } : {}),
-    });
-  } catch (error) {
-    log("error", "places_discovery_failed", {
-      provider:
-        error instanceof ProviderError
-          ? error.providerId
-          : placesProvider.descriptor.id,
-      code: error instanceof ProviderError ? error.code : "unknown",
-      retryable: error instanceof ProviderError ? error.retryable : false,
-      location_cell: coarseLocationCell(input.origin),
-    });
-    throw error;
+  for (const categories of policy.searchGroups) {
+    try {
+      candidates.push(
+        ...(await placesProvider.nearby({
+          origin: input.origin,
+          radiusMeters: policy.radiusMeters,
+          maxResults: perGroupLimit,
+          categories,
+          languageCode: input.languageCode,
+          rankBy: policy.rankBy,
+          ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+        })),
+      );
+    } catch (error) {
+      failures.push(error);
+      log("error", "places_discovery_failed", {
+        provider:
+          error instanceof ProviderError
+            ? error.providerId
+            : placesProvider.descriptor.id,
+        code: error instanceof ProviderError ? error.code : "unknown",
+        retryable: error instanceof ProviderError ? error.retryable : false,
+        categories: categories.join(","),
+        location_cell: coarseLocationCell(input.origin),
+      });
+    }
+  }
+
+  // One side failing leaves a usable if less balanced pool; every side failing
+  // means we know nothing about this area and must say so rather than pretend.
+  if (failures.length === policy.searchGroups.length) {
+    throw failures[0];
   }
 
   const uniqueCandidates = deduplicatePlaceCandidates(candidates);
@@ -71,6 +93,7 @@ export async function discoverNearbyPlaces({
         mood: input.mood,
         partyMode: input.partyMode,
         limit: policy.shortlistLimit,
+        preferObscure: policy.preferObscure,
       });
 
       if (selectedIds.length === 0) {
@@ -89,6 +112,7 @@ export async function discoverNearbyPlaces({
         mood: input.mood,
         partyMode: input.partyMode,
         limit: policy.shortlistLimit,
+        preferObscure: policy.preferObscure,
       });
     }
   } else {
@@ -98,6 +122,7 @@ export async function discoverNearbyPlaces({
       mood: input.mood,
       partyMode: input.partyMode,
       limit: policy.shortlistLimit,
+      preferObscure: policy.preferObscure,
     });
   }
 

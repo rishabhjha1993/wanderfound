@@ -1266,6 +1266,55 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-07-30 — First live provider data
+
+The candidate audit ran against Google Places for the first time, at Fontainhas
+in Panjim. Everything below was corrected because observed output contradicted
+an assumption in this plan, not because it looked wrong on paper.
+
+- `publicAccess` and `purchaseRequired` were hardcoded to `"unknown"` in the
+  Google normaliser. Against WF-202a's "unknown is not permission" rule that
+  would have rejected every candidate in every location while logging a healthy
+  pipeline. Both are now derived from category, and anything outside a known
+  shape still returns `"unknown"` rather than guessing permission.
+- A type blocklist now removes places that are never a discovery whatever else
+  Google tags them: the audit returned the Regional Transport Office, an Aadhaar
+  Seva Kendra, the Regional Passport Office and the PWD headquarters as
+  "historical", and three offshore casino boats as "beautiful". Health and
+  personal-services types were added after the curator picked a nutrition
+  clinic. Lodging is deliberately not blocked, because Goa's old boarding
+  houses are exactly what this product should notice.
+- `tourist_attraction` and other generic types may support a category another
+  type already established, but may never be the reason a place enters the
+  pool. Google applies it to cathedrals, casinos and whole neighbourhoods, and
+  it had turned the entire "strange" mood into a viewpoint soup.
+- A closed place stays playable when its discovery is on its exterior. A chapel
+  shut for the evening still has a carved door and a plaque, and evenings are
+  when travellers have unplanned time. Counting every closed shopfront as
+  unplayable understated playable candidates at Fontainhas by roughly half.
+- "Strange" means historical or culinary substance that visitors walk past, and
+  is decided by the curator rather than by a threshold. Review count is given
+  to the curator as evidence, not applied as a rule. The deterministic fallback
+  keeps numeric bounds because something has to stand in for taste when the AI
+  is unavailable.
+- Ranking shapes the pool, not the selection. Nearby Search returns at most
+  twenty results under one ranking, so popularity ranking handed the curator
+  Panjim's twenty busiest restaurants with no overlooked place to choose from.
+  Obscurity-seeking moods rank by distance, which is popularity-neutral.
+- A mood spanning two kinds of place searches each side separately and merges,
+  because one search cannot represent both: a single request around Fontainhas
+  returned thirteen cafes, six shops and one chapel. Splitting it produced five
+  categories across the same twenty results, at one extra provider call.
+- Party mode does not filter candidates. It is collected at setup and does not
+  currently restrict which places may appear, so an alcohol-led venue can
+  surface in family mode. Recorded as a known gap rather than an oversight.
+- Provider data is noisier than the schema implies. The audit returned a nail
+  salon tagged as a historical landmark, a person's name as a temple, and a
+  nutrition clinic as a food shop, and the curator selected the nail salon on
+  the strength of its low review count. Identity confidence is therefore a
+  WF-202a hard filter, not a curator concern: a place with almost no
+  corroboration is unverified rather than undiscovered.
+
 ### 2026-07-29 — Block 3 review
 
 A review of the implemented code against this plan, before spending the first rupee
@@ -1713,6 +1762,11 @@ belong to WF-202b and must not be stubbed here.
 - [ ] Add religious, residential and private-space boundary rules.
 - [ ] Add purchase-not-required rules for culinary candidates.
 - [ ] Reject candidates with no visually verifiable public feature.
+- [ ] Reject candidates whose identity is not corroborated enough to trust.
+      The audit returned a nail salon tagged as a historical landmark and a
+      person's name as a temple, and the curator picked the nail salon because
+      almost nobody had reviewed it. Too little corroboration means unverified,
+      not undiscovered.
 - [ ] Unit-test each filter independently.
 
 Done when:

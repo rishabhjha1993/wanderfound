@@ -17,6 +17,7 @@
  * a specific question needs it.
  *
  *   npm run audit:candidates
+ *   npm run audit:candidates -- --curate
  *   npm run audit:candidates -- --all
  *   npm run audit:candidates -- --locations=anjuna,rural-maharashtra
  *   npm run audit:candidates -- --moods=historical
@@ -29,6 +30,7 @@ import {
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
 import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
+import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import type { PlaceCandidate } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
@@ -180,6 +182,7 @@ const VIABILITY_BAR = 8;
 type MoodResult = {
   mood: AdventureMood;
   radiusMeters: number;
+  rankBy: string;
   rawCount: number;
   uniqueCount: number;
   conservativeCount: number;
@@ -188,6 +191,8 @@ type MoodResult = {
   unknownOpening: number;
   commercial: number;
   candidates: PlaceCandidate[];
+  curatedIds: string[];
+  curationError?: string;
   error?: string;
 };
 
@@ -226,13 +231,34 @@ async function main() {
   }
 
   const totalCalls = locations.length * moods.length;
+  const searchCalls = locations.reduce(
+    (total) =>
+      total +
+      moods.reduce(
+        (perLocation, mood) =>
+          perLocation + getDiscoveryPolicy(DURATION, mood).searchGroups.length,
+        0,
+      ),
+    0,
+  );
   console.info(
-    `Auditing ${totalCalls} Places calls: ${locations
+    `Auditing ${totalCalls} mood searches (${searchCalls} Places calls): ${locations
       .map((location) => location.slug)
       .join(", ")} x ${moods.join(", ")}.`,
   );
 
   const provider = new GooglePlacesProvider();
+  const curator =
+    options.curate && process.env.AI_API_KEY
+      ? new OpenAIPlaceCurator()
+      : undefined;
+
+  if (options.curate && !curator) {
+    console.error("AI_API_KEY is not set, so --curate cannot run.");
+    process.exitCode = 1;
+    return;
+  }
+
   const results: LocationResult[] = [];
 
   for (const location of locations) {
@@ -240,7 +266,7 @@ async function main() {
 
     for (const mood of moods) {
       process.stdout.write(`  ${location.slug} / ${mood} ... `);
-      moodResults.push(await auditOne(provider, location, mood));
+      moodResults.push(await auditOne(provider, curator, location, mood));
       console.info("done");
       await delay(REQUEST_SPACING_MS);
     }
@@ -252,8 +278,44 @@ async function main() {
   console.info(`\nReport written to ${reportPath}`);
 }
 
+/**
+ * Runs the real curator over the pool so the report shows what the product
+ * would actually offer a player, not just what Google returned. Deciding what
+ * counts as off the beaten track is the curator's judgement, so the only
+ * honest way to review that judgement is to look at its picks.
+ */
+async function curate(
+  curator: OpenAIPlaceCurator,
+  candidates: PlaceCandidate[],
+  location: AuditLocation,
+  mood: AdventureMood,
+  policy: ReturnType<typeof getDiscoveryPolicy>,
+) {
+  try {
+    return {
+      curatedIds: await curator.curate({
+        candidates,
+        origin: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+        mood,
+        partyMode: "solo" as const,
+        limit: policy.shortlistLimit,
+        preferObscure: policy.preferObscure,
+      }),
+    };
+  } catch (error) {
+    return {
+      curatedIds: [],
+      curationError: error instanceof Error ? error.message : "unknown error",
+    };
+  }
+}
+
 async function auditOne(
   provider: GooglePlacesProvider,
+  curator: OpenAIPlaceCurator | undefined,
   location: AuditLocation,
   mood: AdventureMood,
 ): Promise<MoodResult> {
@@ -261,6 +323,7 @@ async function auditOne(
   const base: MoodResult = {
     mood,
     radiusMeters: policy.radiusMeters,
+    rankBy: policy.rankBy,
     rawCount: 0,
     uniqueCount: 0,
     conservativeCount: 0,
@@ -269,17 +332,33 @@ async function auditOne(
     unknownOpening: 0,
     commercial: 0,
     candidates: [],
+    curatedIds: [],
   };
 
   try {
-    const raw = await provider.nearby({
-      origin: { latitude: location.latitude, longitude: location.longitude },
-      radiusMeters: policy.radiusMeters,
-      maxResults: policy.candidateLimit,
-      categories: policy.categories,
-      languageCode: "en",
-      regionCode: location.regionCode,
-    });
+    const perGroupLimit = Math.max(
+      1,
+      Math.floor(policy.candidateLimit / policy.searchGroups.length),
+    );
+    const raw: PlaceCandidate[] = [];
+
+    for (const categories of policy.searchGroups) {
+      raw.push(
+        ...(await provider.nearby({
+          origin: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          radiusMeters: policy.radiusMeters,
+          maxResults: perGroupLimit,
+          categories,
+          languageCode: "en",
+          regionCode: location.regionCode,
+          rankBy: policy.rankBy,
+        })),
+      );
+    }
+
     const unique = deduplicatePlaceCandidates(raw);
 
     for (const candidate of unique) {
@@ -301,12 +380,17 @@ async function auditOne(
       }
     }
 
+    const curation = curator
+      ? await curate(curator, unique, location, mood, policy)
+      : { curatedIds: [] };
+
     return {
       ...base,
       rawCount: raw.length,
       uniqueCount: unique.length,
       conservativeCount: unique.filter(survivesConservativeFilters).length,
       candidates: unique,
+      ...curation,
     };
   } catch (error) {
     return {
@@ -324,10 +408,18 @@ async function auditOne(
  * that matters: if it lands below the viability bar in ordinary neighbourhoods,
  * either the bar or the conservative default has to change, and it is far
  * cheaper to learn that here than after scoring and routing are built.
+ *
+ * Closure only disqualifies a place whose discovery needs its interior. A
+ * chapel shut for the evening still has its carved door, and the second audit
+ * ran at eleven at night, when counting every closed shopfront as unplayable
+ * badly understated what Fontainhas actually offers.
  */
 function survivesConservativeFilters(candidate: PlaceCandidate) {
+  const reachable =
+    candidate.openingStatus !== "closed" || candidate.exteriorObservable;
+
   return (
-    candidate.openingStatus !== "closed" &&
+    reachable &&
     candidate.publicAccess !== "no" &&
     candidate.purchaseRequired !== "yes" &&
     candidate.hazards.length === 0
@@ -405,23 +497,46 @@ async function writeReport(results: LocationResult[]) {
       lines.push(
         `- Raw ${result.rawCount}, unique ${result.uniqueCount}, conservative ${result.conservativeCount}`,
         `- Open now ${result.openNow}, unknown opening ${result.unknownOpening}, commercial ${result.commercial}`,
+        `- Ranked by ${result.rankBy}`,
         `- Categories: ${categories || "none"}`,
         "",
       );
 
+      if (result.curationError) {
+        lines.push(`Curation failed: ${result.curationError}`, "");
+      }
+
+      if (result.curatedIds.length > 0) {
+        const picked = result.curatedIds
+          .map(
+            (id) =>
+              result.candidates.find(
+                (candidate) => candidate.providerPlaceId === id,
+              )?.name ?? id,
+          )
+          .join(", ");
+
+        lines.push(`- **Curator picked:** ${picked}`, "");
+      }
+
       if (result.candidates.length > 0) {
-        lines.push("| Name | Category | Opening | Access | Purchase |");
-        lines.push("| --- | --- | --- | --- | --- |");
+        const selected = new Set(result.curatedIds);
+
+        lines.push("| Picked | Name | Category | Reviews | Opening | Access |");
+        lines.push("| --- | --- | --- | --- | --- | --- |");
 
         for (const candidate of result.candidates) {
           lines.push(
             [
               "",
+              selected.has(candidate.providerPlaceId) ? "**yes**" : "",
               candidate.name.replaceAll("|", "/"),
               candidate.primaryCategory,
+              candidate.reviewCount === undefined
+                ? "—"
+                : String(candidate.reviewCount),
               candidate.openingStatus,
               candidate.publicAccess,
-              candidate.purchaseRequired,
               "",
             ].join(" | "),
           );
@@ -455,6 +570,7 @@ function parseArgs(argv: string[]) {
 
   return {
     all: argv.includes("--all"),
+    curate: argv.includes("--curate"),
     locations: read("locations"),
     moods: read("moods") as AdventureMood[],
   };
