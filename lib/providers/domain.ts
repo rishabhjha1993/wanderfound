@@ -90,6 +90,16 @@ export const PlaceCandidateSchema = z
      * as obscure gems.
      */
     reviewCount: z.number().int().nonnegative().optional(),
+    /**
+     * The provider tagged this as a landmark, monument or heritage place
+     * rather than merely as a building of that kind.
+     *
+     * Being a church is not the same as being historically significant. Every
+     * Indian neighbourhood has working temples and parish churches, and
+     * treating the category as the qualification filled a "historical"
+     * adventure with ordinary places of worship.
+     */
+    landmarkSignal: z.boolean(),
     hazards: z.array(PlaceHazardSchema).max(12),
     groundedFacts: z.array(GroundedFactSchema).max(20),
     visualSignals: z.array(NonEmptyStringSchema.max(240)).max(20),

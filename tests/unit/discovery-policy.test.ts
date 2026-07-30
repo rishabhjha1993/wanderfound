@@ -69,12 +69,42 @@ describe("discovery policy", () => {
   });
 
   it("uses a single search for moods that do not span two kinds of place", () => {
-    for (const mood of ["historical", "culinary", "beautiful"] as const) {
+    for (const mood of ["culinary", "beautiful"] as const) {
       const policy = getDiscoveryPolicy(60, mood);
 
       expect(policy.searchGroups).toHaveLength(1);
       expect(policy.searchGroups[0]).toEqual(policy.categories);
     }
+  });
+
+  // Places of worship are the densest mappable category in most Indian
+  // neighbourhoods and took twelve of nineteen "historical" candidates.
+  it("gives heritage its own search so worship does not crowd it out", () => {
+    const groups = getDiscoveryPolicy(60, "historical").searchGroups;
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toEqual(
+      expect.arrayContaining(["heritage", "architecture", "museum"]),
+    );
+    expect(groups[0]).not.toContain("religious");
+    expect(groups[1]).toContain("religious");
+  });
+
+  it("caps how much of a pool any one category may take", () => {
+    for (const mood of ADVENTURE_MOODS) {
+      expect(
+        getDiscoveryPolicy(60, mood).poolShape.maxPerCategory,
+      ).toBeLessThanOrEqual(4);
+    }
+  });
+
+  // Historical wants the building that matters; strange wants the one nobody
+  // stops at. Without this they collapse into the same adventure.
+  it("points each mood at the end of the prominence range it actually wants", () => {
+    expect(getDiscoveryPolicy(60, "historical").poolShape.prefer).toBe(
+      "significant",
+    );
+    expect(getDiscoveryPolicy(60, "strange").poolShape.prefer).toBe("obscure");
   });
 
   it("ranks an obscurity-seeking mood by distance so the pool is not popularity-led", () => {

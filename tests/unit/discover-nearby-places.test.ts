@@ -95,7 +95,10 @@ describe("discoverNearbyPlaces", () => {
     it("makes one request for a single-sided mood", async () => {
       const { provider, requests } = recordingProvider();
 
-      await discoverNearbyPlaces({ input: INPUT, placesProvider: provider });
+      await discoverNearbyPlaces({
+        input: { ...INPUT, mood: "beautiful" },
+        placesProvider: provider,
+      });
 
       expect(requests).toHaveLength(1);
     });
