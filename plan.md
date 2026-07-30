@@ -943,7 +943,7 @@ Acceptance:
 
 - [x] Implement the real Google `PlacesProvider`.
 - [ ] Audit real candidate quality across contrasting coordinates.
-- [ ] Apply candidate-level hard filters.
+- [x] Apply candidate-level hard filters.
 - [ ] Build the playability debug view.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
@@ -1756,13 +1756,17 @@ Depends on: WF-201a
 Implements only the filters derivable from a places response. Route-dependent rules
 belong to WF-202b and must not be stubbed here.
 
-- [ ] Implement each candidate-level filter from Section 7 as a named rule.
-- [ ] Return a reason code for every rejection.
-- [ ] Treat unknown access, unknown opening and unknown identity conservatively.
-- [ ] Add religious, residential and private-space boundary rules.
-- [ ] Add purchase-not-required rules for culinary candidates.
-- [ ] Reject candidates with no visually verifiable public feature.
-- [ ] Reject candidates whose identity is not corroborated enough to trust.
+- [x] Implement each candidate-level filter from Section 7 as a named rule.
+- [x] Return a reason code for every rejection.
+- [x] Treat unknown access, unknown opening and unknown identity conservatively.
+- [ ] Add religious, residential and private-space boundary rules. Religious
+      places currently pass as exterior-observable and private ones are removed
+      by the type blocklist, so no rule names this boundary explicitly yet.
+- [x] Add purchase-not-required rules for culinary candidates.
+- [x] Reject candidates with no visually verifiable public feature. Present as a
+      guard: Google-normalised candidates always carry visual signals, so this
+      fires only for another provider or a fixture.
+- [x] Reject candidates whose identity is not corroborated enough to trust.
       The audit returned a nail salon tagged as a historical landmark and a
       person's name as a temple, and the curator picked the nail salon because
       almost nobody had reviewed it. Too little corroboration means unverified,

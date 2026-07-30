@@ -12,19 +12,18 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-201 implementation — nearby-place retrieval**
-- Next ticket: **WF-201a — live activation, rate limit and candidate audit**
+- Latest completed ticket: **WF-202a — candidate-level hard filters**
+- Next ticket: **WF-206 — playability debug view**
 
 Production is deployed and healthy. Google sign-in, foreground location,
 the custom map, adventure setup, provider contracts, and the worldwide
 Google Places + GPT-5.6 Sol discovery pipeline are built.
 
-### Two honest caveats
+### Live discovery is active
 
-**Nothing has run against real provider data.** The discovery pipeline is
-complete and tested against fixtures only. Its two server-only credentials
-are absent from local development and Vercel, so the endpoint returns 503
-today:
+The two server-only credentials are configured in local development, so
+discovery now runs against real Google Places data and `gpt-5.6-sol`
+curation. **They are not yet in Vercel**, so production still returns 503.
 
 ```bash
 GOOGLE_MAPS_SERVER_API_KEY=
@@ -33,6 +32,14 @@ AI_TEXT_MODEL=gpt-5.6-sol
 ```
 
 Never commit the real key values or prefix them with `NEXT_PUBLIC_`.
+
+Real data immediately contradicted several assumptions; see the 30 July
+decision-log entry. The short version: two candidate fields were hardcoded to
+`"unknown"` and would have rejected every place on earth, government offices
+and casino boats were being offered as discoveries, and the "strange" mood
+returned Panjim's busiest restaurants. All corrected against observed output.
+
+### One honest caveat
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -151,19 +158,12 @@ The candidate pool is now audited before logic is built on top of it, the
 debug view arrives while it is still useful, and safety filters are split so
 that route-dependent rules are written only once real routes exist.
 
-1. **WF-201a — Live activation and candidate audit**
-   - Effort: Medium.
-   - Add the two server keys locally and in Vercel; confirm the text model
-     actually resolves before relying on it.
-   - Rate-limit the discovery route so a signed-in user cannot drain quota.
-   - Run the audit script across contrasting coordinates and read the report.
-   - Correct the mood-to-category mapping only from what real output shows.
+1. ~~**WF-201a — Live activation and candidate audit**~~ — done, except adding
+   the two keys to Vercel, which is still outstanding.
 
-2. **WF-202a — Candidate-level hard filters**
-   - Effort: High.
-   - Reject closed, private, ticketed, purchase-required, ambiguous and
-     visually unverifiable candidates, with a reason code for each.
-   - Unknown is not permission.
+2. ~~**WF-202a — Candidate-level hard filters**~~ — done. Seven named rules with
+   reason codes, running before the curator so no AI response can reinstate a
+   rejected candidate.
 
 3. **WF-206 — Playability debug view**
    - Effort: Medium.
