@@ -167,9 +167,12 @@ export async function discoverNearbyPlaces({
 
   return {
     radiusMeters: policy.radiusMeters,
+    rankBy: policy.rankBy,
     retrievedCount: deduplicated.length,
     candidateCount: uniqueCandidates.length,
     selectionMethod,
+    /** Everything that survived the filters, whether or not it was selected. */
+    candidates: uniqueCandidates,
     places,
     rejected,
   };

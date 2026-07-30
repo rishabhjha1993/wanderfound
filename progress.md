@@ -12,8 +12,8 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-202a — candidate-level hard filters**
-- Next ticket: **WF-206 — playability debug view**
+- Latest completed ticket: **WF-206 — playability debug view**
+- Next ticket: **WF-203 — walking routes and duration matrix**
 
 Production is deployed and healthy. Google sign-in, foreground location,
 the custom map, adventure setup, provider contracts, and the worldwide
@@ -165,10 +165,10 @@ that route-dependent rules are written only once real routes exist.
    reason codes, running before the curator so no AI response can reinstate a
    rejected candidate.
 
-3. **WF-206 — Playability debug view**
-   - Effort: Medium.
-   - Retrieved, rejected and selected places with reasons, so the founder can
-     diagnose a bad trail without reading server logs.
+3. ~~**WF-206 — Playability debug view**~~ — done. Visit
+   `/debug/playability` while signed in, locally or on a deployment with
+   `WANDERFOUND_DEBUG_TOOLS=true`. There is a "use my location" button, so this
+   is the tool to open while standing in a Goan street.
 
 4. **WF-203 — Walking routes and duration matrix**
    - Effort: High.

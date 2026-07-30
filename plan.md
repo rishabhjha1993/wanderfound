@@ -951,7 +951,7 @@ Acceptance:
 - [x] Implement the real Google `PlacesProvider`.
 - [ ] Audit real candidate quality across contrasting coordinates.
 - [x] Apply candidate-level hard filters.
-- [ ] Build the playability debug view.
+- [x] Build the playability debug view.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
@@ -1807,12 +1807,17 @@ Depends on: WF-202a
 Deliberately built early. Every ticket from here to WF-205 is diagnosed through this
 view, and building it last means debugging the whole engine through server logs.
 
-- [ ] Build a development-only view of retrieved, rejected and selected places.
-- [ ] Display rejection reasons and scoring components as each becomes available.
-- [ ] Display route duration and geometry once routing exists.
-- [ ] Display which curator produced the selection.
-- [ ] Redact provider secrets.
-- [ ] Protect the route outside local development.
+- [x] Build a development-only view of retrieved, rejected and selected places.
+- [x] Display rejection reasons and scoring components as each becomes available.
+      Scoring components arrive with WF-204.
+- [ ] Display route duration and geometry once routing exists. Waiting on WF-203.
+- [x] Display which curator produced the selection, and say so plainly when Sol
+      was requested but the deterministic curator ran instead.
+- [x] Redact provider secrets. The route returns typed provider failure codes
+      and never a provider message or key.
+- [x] Protect the route outside local development. Always available outside
+      production; a deployment needs `WANDERFOUND_DEBUG_TOOLS=true`, and an
+      authenticated session is required either way.
 
 Done when:
 
