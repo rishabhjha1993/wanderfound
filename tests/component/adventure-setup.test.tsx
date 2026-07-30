@@ -41,7 +41,7 @@ describe("AdventureSetup", () => {
       ),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("radio", { name: /30 minutes/i }));
+    await user.click(screen.getByRole("radio", { name: /half a day/i }));
     await user.click(screen.getByRole("radio", { name: /Strange/i }));
     await user.click(screen.getByRole("radio", { name: /Couple \/ friends/i }));
 
@@ -51,7 +51,7 @@ describe("AdventureSetup", () => {
     await user.click(continueButton);
 
     expect(onComplete).toHaveBeenCalledWith({
-      durationMinutes: 30,
+      dayShape: "half_day",
       mood: "strange",
       partyMode: "couple_friends",
     });
@@ -67,7 +67,7 @@ describe("AdventureSetup", () => {
       />,
     );
 
-    await user.click(screen.getByRole("radio", { name: /60 minutes/i }));
+    await user.click(screen.getByRole("radio", { name: /a full day/i }));
     await user.click(screen.getByRole("radio", { name: /Beautiful/i }));
 
     firstRender.unmount();
@@ -81,7 +81,7 @@ describe("AdventureSetup", () => {
       />,
     );
 
-    expect(screen.getByRole("radio", { name: /60 minutes/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /a full day/i })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Beautiful/i })).toBeChecked();
     expect(screen.getByText("2 of 3 choices ready")).toBeVisible();
   });
@@ -119,7 +119,7 @@ describe("AdventureSetupComplete", () => {
           capturedAt: Date.now(),
         }}
         setup={{
-          durationMinutes: 30,
+          dayShape: "half_day",
           mood: "historical",
           partyMode: "solo",
         }}

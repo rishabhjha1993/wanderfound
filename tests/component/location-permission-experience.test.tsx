@@ -109,7 +109,7 @@ describe("LocationPermissionExperience", () => {
     await user.click(
       await screen.findByRole("button", { name: "Choose my adventure" }),
     );
-    await user.click(screen.getByRole("radio", { name: /60 minutes/i }));
+    await user.click(screen.getByRole("radio", { name: /a full day/i }));
     await user.click(screen.getByRole("radio", { name: /Culinary/i }));
     await user.click(screen.getByRole("radio", { name: /Family/i }));
     await user.click(screen.getByRole("button", { name: "Set my compass" }));
@@ -122,7 +122,7 @@ describe("LocationPermissionExperience", () => {
     expect(events).toContainEqual({
       name: "setup_completed",
       properties: {
-        duration_minutes: 60,
+        day_shape: "full_day",
         mood: "culinary",
         party_mode: "family",
       },

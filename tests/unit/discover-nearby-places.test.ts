@@ -10,7 +10,7 @@ import {
 
 const INPUT = {
   origin: { latitude: 15.4989, longitude: 73.8278 },
-  durationMinutes: 30 as const,
+  dayShape: "half_day" as const,
   mood: "historical" as const,
   partyMode: "solo" as const,
   languageCode: "en",
@@ -70,13 +70,18 @@ describe("discoverNearbyPlaces", () => {
         placesProvider: provider,
       });
 
-      expect(requests).toHaveLength(2);
-      expect(requests[0]!.categories).toEqual(
-        expect.arrayContaining(["heritage"]),
+      // Both sides are searched at every centre of the sweep.
+      const sides = new Set(
+        requests.map((request) => request.categories.join(",")),
       );
-      expect(requests[1]!.categories).toEqual(
-        expect.arrayContaining(["culinary"]),
-      );
+
+      expect(sides.size).toBe(2);
+      expect(
+        requests.some((request) => request.categories.includes("heritage")),
+      ).toBe(true);
+      expect(
+        requests.some((request) => request.categories.includes("culinary")),
+      ).toBe(true);
     });
 
     it("splits the candidate budget across the sides", async () => {
@@ -92,7 +97,7 @@ describe("discoverNearbyPlaces", () => {
       }
     });
 
-    it("makes one request for a single-sided mood", async () => {
+    it("makes one request per centre for a single-sided mood", async () => {
       const { provider, requests } = recordingProvider();
 
       await discoverNearbyPlaces({
@@ -100,7 +105,85 @@ describe("discoverNearbyPlaces", () => {
         placesProvider: provider,
       });
 
-      expect(requests).toHaveLength(1);
+      const sides = new Set(
+        requests.map((request) => request.categories.join(",")),
+      );
+
+      expect(sides.size).toBe(1);
+      expect(requests.length).toBeGreaterThan(1);
+    });
+
+    // The sweep is the whole reason a day can cover a city: one Nearby Search
+    // answers a point and returns at most twenty places.
+    it("searches from several distinct centres, not just the player", async () => {
+      const { provider, requests } = recordingProvider();
+
+      await discoverNearbyPlaces({ input: INPUT, placesProvider: provider });
+
+      const centres = new Set(
+        requests.map(
+          (request) =>
+            `${request.origin.latitude.toFixed(4)},${request.origin.longitude.toFixed(4)}`,
+        ),
+      );
+
+      expect(centres.size).toBeGreaterThan(1);
+      expect(
+        centres.has(
+          `${INPUT.origin.latitude.toFixed(4)},${INPUT.origin.longitude.toFixed(4)}`,
+        ),
+      ).toBe(true);
+    });
+
+    it("reaches further for a full day than a half day", async () => {
+      const half = recordingProvider();
+      const full = recordingProvider();
+
+      await discoverNearbyPlaces({
+        input: { ...INPUT, dayShape: "half_day" },
+        placesProvider: half.provider,
+      });
+      await discoverNearbyPlaces({
+        input: { ...INPUT, dayShape: "full_day" },
+        placesProvider: full.provider,
+      });
+
+      expect(full.requests.length).toBeGreaterThan(half.requests.length);
+    });
+
+    it("reports what the sweep cost", async () => {
+      const { provider } = recordingProvider();
+
+      const result = await discoverNearbyPlaces({
+        input: INPUT,
+        placesProvider: provider,
+      });
+
+      expect(result.searchCount).toBeGreaterThan(1);
+      expect(result.centreCount).toBeGreaterThan(1);
+      expect(result.failedSearchCount).toBe(0);
+    });
+
+    // A centre may land in water or open country at the edge of a city.
+    it("tolerates individual searches failing across the sweep", async () => {
+      let call = 0;
+      const { provider } = recordingProvider(async (request) => {
+        call += 1;
+
+        if (call % 3 === 0) {
+          throw new Error("no results at this centre");
+        }
+
+        return MOCK_PLACE_CANDIDATES.slice(0, request.maxResults);
+      });
+
+      const result = await discoverNearbyPlaces({
+        input: INPUT,
+        placesProvider: provider,
+      });
+
+      expect(result.failedSearchCount).toBeGreaterThan(0);
+      expect(result.places.length).toBeGreaterThan(0);
     });
 
     // A less balanced pool still beats refusing an area we partly understand.

@@ -14,7 +14,7 @@ beforeEach(() => {
 describe("adventure setup session", () => {
   it("stores partial choices for the current browser session", () => {
     const draft = {
-      durationMinutes: 60,
+      dayShape: "full_day",
       mood: "strange",
       partyMode: null,
     } as const;
@@ -26,7 +26,7 @@ describe("adventure setup session", () => {
 
   it("recognises a complete setup", () => {
     const setup = {
-      durationMinutes: 30,
+      dayShape: "half_day",
       mood: "historical",
       partyMode: "solo",
     } as const;
@@ -40,7 +40,7 @@ describe("adventure setup session", () => {
       JSON.stringify({
         version: 1,
         draft: {
-          durationMinutes: 500,
+          dayShape: 500,
           mood: "invented",
           partyMode: "crowd",
         },
@@ -52,7 +52,7 @@ describe("adventure setup session", () => {
 
   it("can clear the session draft", () => {
     storeAdventureSetupDraft({
-      durationMinutes: 30,
+      dayShape: "half_day",
       mood: "beautiful",
       partyMode: "family",
     });

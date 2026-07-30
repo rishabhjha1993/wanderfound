@@ -148,7 +148,7 @@ describe("PlayabilityDebugger", () => {
 
     expect(JSON.parse(options.body)).toMatchObject({
       mood: "strange",
-      durationMinutes: 60,
+      dayShape: "full_day",
       partyMode: "solo",
       useAiCurator: true,
       origin: { latitude: 15.4989, longitude: 73.8317 },
