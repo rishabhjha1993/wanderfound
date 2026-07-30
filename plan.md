@@ -949,7 +949,7 @@ Acceptance:
 ### Milestone 2 — Candidate and routing engine
 
 - [x] Implement the real Google `PlacesProvider`.
-- [ ] Audit real candidate quality across contrasting coordinates.
+- [x] Audit real candidate quality across contrasting coordinates.
 - [x] Apply candidate-level hard filters.
 - [x] Build the playability debug view.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
@@ -1755,13 +1755,16 @@ inspected at real coordinates. If Goan beach villages return mostly restaurants 
 hotels, the four-mood category mapping and the eight-candidate viability bar are
 wrong, and every ticket built above them inherits that error.
 
-- [ ] Add the server-only Google Places and AI keys to local development and Vercel.
-- [ ] Confirm the configured text model resolves on the project before relying on it.
-- [ ] Add a per-user rate limit to the discovery route.
-- [ ] Record which curator produced each selection so silent AI fallback is visible.
-- [ ] Run the audit at Fontainhas, Panjim across all four moods.
-- [ ] Review the report and correct the mood mapping from real observations only.
+- [x] Add the server-only Google Places and AI keys to local development and Vercel.
+      Registered in both, but Vercel carries a misspelled `AI_TEXT_MODE` and no
+      deployment has been made since, so production is not yet running on them.
+- [x] Confirm the configured text model resolves on the project before relying on it.
+- [x] Add a per-user rate limit to the discovery route.
+- [x] Record which curator produced each selection so silent AI fallback is visible.
+- [x] Run the audit at Fontainhas, Panjim across all four moods.
+- [x] Review the report and correct the mood mapping from real observations only.
 - [ ] Gather wider evidence from real sessions at the founder's own location.
+      Needs field use in Goa rather than more code.
 
 Done when:
 
