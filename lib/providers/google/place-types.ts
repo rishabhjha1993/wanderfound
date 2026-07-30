@@ -127,6 +127,26 @@ export function googleTypesForCategories(categories: PlaceCategory[]) {
   ].slice(0, 50);
 }
 
+/**
+ * Types that mark a place as a landmark in its own right, rather than as an
+ * ordinary building of its kind. A parish church carries `church`; the
+ * cathedral carries `historical_landmark` as well.
+ */
+const LANDMARK_GOOGLE_TYPES = new Set([
+  "historical_landmark",
+  "historical_place",
+  "cultural_landmark",
+  "monument",
+  "castle",
+  "art_museum",
+  "history_museum",
+  "museum",
+]);
+
+export function hasLandmarkSignal(googleTypes: string[]) {
+  return googleTypes.some((type) => LANDMARK_GOOGLE_TYPES.has(type));
+}
+
 export function isExcludedGooglePlace(googleTypes: string[]) {
   return googleTypes.some((type) => EXCLUDED_GOOGLE_TYPES.has(type));
 }

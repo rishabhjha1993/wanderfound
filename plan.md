@@ -101,22 +101,38 @@ AI belongs backstage. The player should experience the neighbourhood, not the mo
 
 ## 3. Core product loop
 
+A day is the unit, and a **pocket** is where the game happens. A pocket is a
+walkable cluster of places — an old quarter, a market street, a waterfront —
+tight enough to explore entirely on foot. A day holds two to four of them, with
+ordinary transport in between.
+
+This is what keeps the product from becoming an itinerary generator, which
+Section 2 still rules out. Between pockets Wanderfound is a plan. Inside a
+pocket it is the game: clues, search zones, photographs, verification.
+
 ```text
 Open Wanderfound
     ↓
 Grant foreground location
     ↓
-Choose duration, mood and party
+Choose day shape, mood and party
     ↓
-Retrieve nearby candidate places
+Sweep the surrounding city for candidate places
     ↓
-Filter for safety, accessibility and walkability
+Filter for safety, accessibility and significance
     ↓
-Select five visually discoverable stages
+Cluster survivors into walkable pockets
     ↓
-Generate one grounded mystery
+Select 2–4 pockets that fit the day, with transport between them
     ↓
-Reveal stage 1 clue + exact walking path to a small search zone
+Select visually discoverable stages inside each pocket
+    ↓
+Generate one grounded mystery spanning the day
+    ↓
+── per pocket ──────────────────────────────
+Travel guidance to the pocket (transport, honestly labelled)
+    ↓
+Reveal stage clue + exact walking path to a small search zone
     ↓
 Player walks and submits a photograph
     ↓
@@ -124,10 +140,17 @@ GPS + visual AI verify the discovery
     ↓
 Story reacts; next stage unlocks
     ↓
-After stage 2: unlock stages 3–5
+Pocket completes; story advances to the next pocket
+────────────────────────────────────────────
+    ↓
+After the first pocket: unlock the rest of the day
     ↓
 Complete mystery and receive journey card
 ```
+
+The player is never asked to walk between pockets. Distances there are a
+travel decision, not gameplay, and pretending otherwise is how a product built
+in a dense quarter becomes unusable in a spread-out town.
 
 ---
 
@@ -168,21 +191,24 @@ A traveller already present in a walkable neighbourhood who has 30–90 unplanne
 - Google sign-in required before adventure setup or gameplay;
 - persistent account ownership across refreshes and supported devices;
 - foreground GPS permission;
-- 30- and 60-minute adventure options;
+- half-day and full-day options;
 - four moods: historical, culinary, strange and beautiful;
 - solo, couple/friends and family party selection;
-- automatic nearby-place retrieval;
+- city-wide candidate sweep around the player;
 - coordinate-driven discovery worldwide with no city allow-list;
-- five-stage grounded mystery;
-- exact pedestrian path and turn guidance displayed on a beautiful map;
+- clustering of candidates into two to four walkable pockets;
+- honest travel guidance between pockets, never presented as gameplay;
+- a grounded mystery spanning the day, with stages inside pockets;
+- exact pedestrian path and turn guidance within a pocket;
 - automatic rerouting when the player leaves the path;
 - one stage revealed at a time;
 - GPS and photograph verification;
 - hint system;
 - rerouting or graceful stage replacement;
-- stage progress and session persistence;
-- first two stages free;
-- ₹149 full-adventure unlock in Razorpay test mode, then live mode;
+- the ability to end a day early with a satisfying resolution;
+- stage, pocket and session persistence;
+- the first pocket free;
+- ₹149 unlock for the rest of the day, in Razorpay test mode then live mode;
 - completion screen and shareable journey card;
 - event analytics;
 - feedback prompt;
@@ -322,12 +348,16 @@ interface KnowledgeProvider {
 }
 ```
 
-`walkingMatrix` exists to keep routing cost bounded. Combination search must never
+`walkingMatrix` exists to keep routing cost bounded. Sequence search must never
 call `walkingRoute` per candidate pair: with twenty surviving candidates that is
 hundreds of billable calls per generation. Instead request one pairwise duration
-matrix over the filtered candidate set, run all scoring and ordering against that
-in-memory matrix, and call `walkingRoute` only for the four legs of the finally
-selected trail. Budget: approximately two routing requests per generated adventure.
+matrix per pocket, run all scoring and ordering against that in-memory matrix,
+and call `walkingRoute` only for the legs of the finally selected sequences.
+
+Because pockets are walkable by construction, the matrix only ever covers places
+within one pocket — never the whole city — which keeps it small however far the
+day ranges. Travel between pockets is a separate, non-walking estimate and must
+never be presented as a walking route.
 
 Recommended MVP defaults:
 
@@ -434,24 +464,52 @@ Score candidates on:
 - suitability for mood and party;
 - expected photo-verification reliability.
 
-### Trail viability
+### The city sweep and pockets
+
+A day covers a city, but Nearby Search answers a single point with at most
+twenty results. One call cannot describe a city, and widening the radius does
+not help: it returns the same twenty most prominent places spread thinner.
+
+So the sweep uses **several search centres** around the player rather than one
+larger circle. Centres are derived from the player's position and the day's
+reach, never from a hand-maintained list of districts, because the moment a
+list exists the product stops working in the towns nobody listed.
+
+A **pocket** is then found in the data, not declared in advance:
+
+- a pocket is a group of surviving candidates within walking distance of one
+  another, tight enough that every stage in it is reachable on foot;
+- a pocket needs enough substance to be worth travelling to, not merely enough
+  places to fill a list;
+- pockets are discovered by clustering candidate coordinates, so a new
+  neighbourhood needs no configuration to become playable;
+- a place that belongs to no pocket is dropped, however good it is. An
+  excellent site with nothing around it is a detour, not a chapter.
+
+Cost follows directly from this and must be watched: the sweep multiplies
+provider calls by the number of centres. Budget and measure it per generated
+day, and prefer fewer, better-placed centres over exhaustive coverage.
+
+### Day viability
 
 Generate only if:
 
-- at least eight safe candidates survive filtering;
-- five high-confidence stages can be selected;
-- total walking time fits the chosen duration with buffer;
-- all consecutive walking routes are valid;
-- at least three different discovery categories are represented;
+- at least two pockets qualify;
+- each pocket holds enough high-confidence stages to justify the journey;
+- walking time within every pocket fits its share of the day with buffer;
+- transport time between pockets is plausible and honestly estimated;
+- all consecutive walking routes inside a pocket are valid;
+- at least three different discovery categories are represented across the day;
 - no stage confidence falls below the configured threshold.
 
-Otherwise:
+Otherwise, in order:
 
-- expand radius once within the duration limit;
-- offer a nearby starting area if available;
+- widen the sweep once within the day's reach;
+- offer a shorter day built from the pockets that do qualify;
 - or return “No reliable adventure here yet.”
 
-A truthful refusal is preferable to a fabricated trail.
+A truthful refusal is preferable to a fabricated day, and a good half day is
+preferable to a padded full one.
 
 ### Navigation principle
 
@@ -478,22 +536,24 @@ feature in the surroundings.
 ### Generation sequence
 
 1. Capture start location, local time and user selections.
-2. Retrieve candidate places within a duration-derived radius.
+2. Sweep several search centres across the day's reach.
 3. Apply hard safety and accessibility filters.
-4. Enrich the strongest candidates with grounded facts.
-5. Request one pairwise walking-duration matrix over the surviving candidates.
-6. Search for the best five-stop sequence against that matrix.
-7. Request full walking routes with geometry for the selected sequence only.
-8. give the AI only the selected candidate objects and permitted facts.
-9. generate structured trail JSON.
-10. validate the JSON against schema and business rules.
-11. run a second deterministic check:
+4. Cluster survivors into candidate pockets and discard unpocketed places.
+5. Rank pockets and select those that fit the day, with transport between them.
+6. Enrich the strongest candidates in the chosen pockets with grounded facts.
+7. Request one pairwise walking-duration matrix **within each chosen pocket**.
+8. Search for the best stage sequence inside each pocket against its matrix.
+9. Request full walking routes with geometry for the selected sequences only.
+10. give the AI only the selected candidate objects and permitted facts.
+11. generate structured trail JSON.
+12. validate the JSON against schema and business rules.
+13. run a second deterministic check:
     - every stage references a real candidate ID;
     - every fact has a source;
     - no exact destination leaks into early clue text;
     - verification criteria are observable;
     - route time remains within the selected duration.
-12. persist the session and begin.
+14. persist the session and begin.
 
 ### AI output schema
 
@@ -952,11 +1012,15 @@ Acceptance:
 - [x] Audit real candidate quality across contrasting coordinates.
 - [x] Apply candidate-level hard filters.
 - [x] Build the playability debug view.
+- [x] Cap any one category's share of the pool.
+- [ ] Sweep several search centres across a city.
+- [ ] Cluster candidates into walkable pockets.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
 - [ ] Score candidates.
-- [ ] Search for the best five-stop sequence.
+- [ ] Search for the best stage sequence inside a pocket.
+- [ ] Assemble a day from pockets, with transport between them.
 - [ ] Return a playability decision.
 - [ ] Persist a server-authoritative session record.
 - [x] Add mocked-provider and provider-boundary tests.
@@ -1272,6 +1336,51 @@ Do not claim the next level before the preceding behaviour exists.
 ---
 
 ## 20. Decision log
+
+### 2026-07-30 — A day of pockets
+
+Running "historical" from a real location returned mostly ordinary
+neighbourhood temples and churches. The immediate cause was pool composition
+and is fixed below. The founder's response was to change the product's shape,
+and these are those decisions.
+
+- **The unit is a day, not an hour.** V0 offers half-day and full-day options
+  instead of 30 and 60 minutes.
+- **The game happens in pockets.** A pocket is a walkable cluster of places; a
+  day holds two to four with ordinary transport between them. Between pockets
+  Wanderfound is a plan, inside a pocket it is a game. This is what keeps
+  Section 2's "not an itinerary generator" true rather than nominal: the
+  differentiator survives because clues, search zones and photo verification
+  all still happen, just inside a smaller area than the day as a whole.
+- **Players never walk between pockets.** Transport is estimated honestly and
+  never drawn or described as a walking route. Treating cross-city distance as
+  gameplay is how a product designed in a dense quarter becomes unusable in a
+  spread-out town.
+- **Pockets are found, not listed.** They come from clustering candidate
+  coordinates. A named-district list would work in the cities someone
+  remembered and fail everywhere else, which contradicts the worldwide rule.
+- **The sweep uses several search centres.** One Nearby Search describes a
+  point, and a wider radius returns the same twenty prominent places spread
+  thinner rather than more of them. This multiplies provider cost per generated
+  day, so the cost must be measured rather than assumed.
+- **The paywall follows the pocket.** The first pocket is free and ₹149 unlocks
+  the rest of the day. "First two of five stages" does not map onto a day.
+- **Clustering is sequenced before routing.** Routing built against a city-wide
+  candidate list would compute a matrix that pockets make unnecessary and would
+  need rewriting the moment pockets existed.
+- **Significance is a property of a place, not its category.** Being a church
+  no longer qualifies a place as historical. A landmark tag beats raw
+  popularity, no category may exceed a small share of the pool, and heritage
+  gets its own search so that worship cannot crowd it out. Significance is
+  judged relative to the pool, so a village's principal church is not measured
+  against a metro's review counts.
+- **Museum facades are observable**, as chapel facades already were. Excluding
+  them rejected every gallery and museum around Fontainhas after closing time,
+  which is exactly what a historical day wants.
+
+Deferred rather than decided: how a day handles weather, how meals are placed
+for a culinary day, and what happens when a player abandons midway through the
+second pocket. All three need field evidence rather than more reasoning.
 
 ### 2026-07-30 — First live provider data
 
@@ -1825,6 +1934,63 @@ view, and building it last means debugging the whole engine through server logs.
 Done when:
 
 - the founder can diagnose a bad trail without reading server logs.
+
+#### WF-208 — City-wide candidate sweep
+
+Depends on: WF-202a
+
+One Nearby Search describes a point, not a city, and a wider radius returns the
+same twenty prominent places spread thinner rather than more of them.
+
+- [ ] Derive several search centres from the player's position and the day's reach.
+- [ ] Derive them geometrically, never from a list of named districts.
+- [ ] Run the existing search groups at each centre and merge.
+- [ ] Deduplicate across centres, where overlap is expected and normal.
+- [ ] Cap total provider calls per generated day and record the count.
+- [ ] Measure and log the cost of one generated day.
+
+Done when:
+
+- a sweep around a real city returns materially more distinct places than one
+  search at its centre;
+- the cost of a generated day is a known number rather than an estimate.
+
+#### WF-209 — Pocket clustering
+
+Depends on: WF-208
+
+A pocket is found in the data, not declared. Anything list-based fails in the
+towns nobody thought to list.
+
+- [ ] Cluster surviving candidates by walking proximity.
+- [ ] Require a pocket to hold enough substance to justify travelling to it.
+- [ ] Discard candidates belonging to no pocket, however good they are.
+- [ ] Score pockets on substance, variety and coherence.
+- [ ] Return an explanation of why each pocket formed, for the debug view.
+- [ ] Add fixtures for dense, sparse and single-cluster areas.
+
+Done when:
+
+- a dense quarter forms one tight pocket rather than several overlapping ones;
+- a spread-out town forms either few pockets or none, and says so plainly;
+- adding a neighbourhood requires no configuration.
+
+#### WF-210 — Day assembly and transport legs
+
+Depends on: WF-209, WF-203
+
+- [ ] Select two to four pockets that fit the chosen day shape.
+- [ ] Estimate transport time between pockets without presenting it as walking.
+- [ ] Reserve time for breaks, and for the day's meals where the mood implies them.
+- [ ] Respect opening hours when ordering pockets, which matter far more across a
+      day than across an hour.
+- [ ] Offer a shorter day rather than padding a weak one.
+- [ ] Return a truthful refusal when fewer than two pockets qualify.
+
+Done when:
+
+- a generated day is achievable by a real person at a real pace;
+- no transport leg is ever drawn or described as a walking route.
 
 #### WF-203 — Walking routes and duration matrix
 
@@ -2485,11 +2651,18 @@ route-dependent rules are written only once real routes exist.
 - Day 11: WF-201a — activation, rate limit and candidate audit.
 - Day 12: WF-202a — candidate-level filters.
 - Day 13: WF-206 — debug view.
-- Day 14: WF-203 — routes and duration matrix.
-- Day 15: WF-202b — route-level safety filters.
-- Day 16: WF-204 — scoring.
-- Day 17–18: WF-205 — sequence search.
-- Day 19: WF-207 — server-authoritative session record.
+- Day 14: WF-208 — city-wide sweep.
+- Day 15–16: WF-209 — pocket clustering.
+- Day 17: WF-203 — routes and duration matrix, per pocket.
+- Day 18: WF-202b — route-level safety filters.
+- Day 19: WF-204 — scoring.
+- Day 20–21: WF-205 — sequence search inside a pocket.
+- Day 22: WF-210 — day assembly and transport legs.
+- Day 23: WF-207 — server-authoritative session record.
+
+Clustering precedes routing deliberately. Routing built against a city-wide
+candidate list would compute a matrix that pockets make unnecessary, and would
+have to be rewritten as soon as pockets existed.
 
 Output: the system selects a safe five-stop route or refuses truthfully, without AI
 narrative, and persists that decision server-side.

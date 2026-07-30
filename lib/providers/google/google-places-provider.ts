@@ -9,6 +9,7 @@ import {
 import { PlacesProviderError } from "@/lib/providers/errors";
 import {
   googleTypesForCategories,
+  hasLandmarkSignal,
   mapGoogleTypesToCategories,
 } from "@/lib/providers/google/place-types";
 import { parseProviderResponse } from "@/lib/providers/validation";
@@ -240,6 +241,7 @@ export class GooglePlacesProvider implements PlacesProvider {
         : { reviewCount: place.userRatingCount }),
       hazards: [],
       groundedFacts: [],
+      landmarkSignal: hasLandmarkSignal(googleTypes),
       visualSignals: googleTypes.slice(0, 20),
       attributions: [
         {
@@ -361,6 +363,11 @@ function exteriorObservable(categories: PlaceCandidate["categories"]) {
       "civic",
       "market",
       "culinary",
+      // A museum's facade is as observable as a chapel's, and excluding it
+      // rejected every gallery and museum around Fontainhas after closing —
+      // which is precisely the material a historical adventure wants. The
+      // Fundação Oriente is a Portuguese mansion before it is an exhibition.
+      "museum",
     ].includes(category),
   );
 }

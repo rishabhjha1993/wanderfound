@@ -2,6 +2,7 @@ import type {
   AdventureDuration,
   AdventureMood,
 } from "@/lib/adventure/setup-session";
+import type { PoolShape } from "@/lib/discovery/pool-balance";
 import type { PlaceCategory } from "@/lib/providers/domain";
 
 const DURATION_POLICY: Record<
@@ -93,10 +94,32 @@ const MOODS_PREFERRING_OBSCURITY: AdventureMood[] = ["strange"];
  * makes the pool balanced, at the cost of one extra provider call.
  */
 const MOOD_SEARCH_GROUPS: Partial<Record<AdventureMood, PlaceCategory[][]>> = {
+  // Places of worship are the densest mappable category in most Indian
+  // neighbourhoods, and a single search let them take twelve of nineteen
+  // "historical" candidates. Giving heritage, architecture and museums their
+  // own search guarantees they reach the curator at all.
+  historical: [
+    ["heritage", "architecture", "museum"],
+    ["religious", "civic"],
+  ],
   strange: [
     ["heritage", "architecture", "public_art", "religious"],
     ["culinary", "market"],
   ],
+};
+
+/**
+ * How each mood wants its pool shaped once the candidates are in.
+ *
+ * `maxPerCategory` is the cap that stops one dense category taking the list.
+ * `prefer` decides who survives that cap: the place that matters, the place
+ * nobody stops at, or simply the nearest.
+ */
+const MOOD_POOL_SHAPE: Record<AdventureMood, PoolShape> = {
+  historical: { maxPerCategory: 3, prefer: "significant" },
+  culinary: { maxPerCategory: 4, prefer: "significant" },
+  strange: { maxPerCategory: 3, prefer: "obscure" },
+  beautiful: { maxPerCategory: 4, prefer: "significant" },
 };
 
 export function getDiscoveryPolicy(
@@ -110,6 +133,7 @@ export function getDiscoveryPolicy(
     ...DURATION_POLICY[durationMinutes],
     categories: [...MOOD_CATEGORIES[mood]],
     searchGroups: searchGroups.map((group) => [...group]),
+    poolShape: MOOD_POOL_SHAPE[mood],
     preferObscure,
     /**
      * Ranking shapes which twenty places the curator gets to choose between.

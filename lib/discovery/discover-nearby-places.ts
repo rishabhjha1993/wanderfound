@@ -12,6 +12,7 @@ import {
   DeterministicPlaceCurator,
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
+import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { log } from "@/lib/logger";
 import type { PlacesProvider } from "@/lib/providers/contracts";
@@ -87,8 +88,15 @@ export async function discoverNearbyPlaces({
   const deduplicated = deduplicatePlaceCandidates(candidates);
   // Filters run before curation so that no AI response can reinstate a
   // candidate the deterministic rules rejected.
-  const { accepted: uniqueCandidates, rejected } =
-    filterCandidates(deduplicated);
+  const { accepted, rejected } = filterCandidates(deduplicated);
+  // Capping each category's share is what stops the densest thing on the map
+  // becoming the whole adventure. The curator can only choose from what it is
+  // handed, so balance has to be decided before it sees anything.
+  const uniqueCandidates = shapeCandidatePool(
+    accepted,
+    input.origin,
+    policy.poolShape,
+  );
 
   if (rejected.length > 0) {
     log("info", "places_candidates_rejected", {

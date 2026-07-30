@@ -30,6 +30,7 @@ import {
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
 import { filterCandidates } from "@/lib/discovery/candidate-filters";
+import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
@@ -366,12 +367,9 @@ async function auditOne(
 
     const unique = deduplicatePlaceCandidates(raw);
 
+    // Category counts are taken from the shaped pool below, since that is what
+    // the curator actually sees.
     for (const candidate of unique) {
-      base.categories.set(
-        candidate.primaryCategory,
-        (base.categories.get(candidate.primaryCategory) ?? 0) + 1,
-      );
-
       if (candidate.openingStatus === "open") {
         base.openNow += 1;
       }
@@ -386,23 +384,49 @@ async function auditOne(
     }
 
     const { accepted, rejected } = filterCandidates(unique);
+    // Shape the pool exactly as discovery does. Reporting the unshaped pool
+    // hid the category cap entirely and made the audit disagree with the
+    // product about what a mood actually offers.
+    const shaped = shapeCandidatePool(
+      accepted,
+      { latitude: location.latitude, longitude: location.longitude },
+      policy.poolShape,
+    );
+    const cappedOut = new Set(
+      accepted
+        .filter(
+          (candidate) =>
+            !shaped.some(
+              (kept) => kept.providerPlaceId === candidate.providerPlaceId,
+            ),
+        )
+        .map((candidate) => candidate.providerPlaceId),
+    );
     const curation = curator
-      ? await curate(curator, accepted, location, mood, policy)
+      ? await curate(curator, shaped, location, mood, policy)
       : { curatedIds: [] };
+
+    for (const candidate of shaped) {
+      base.categories.set(
+        candidate.primaryCategory,
+        (base.categories.get(candidate.primaryCategory) ?? 0) + 1,
+      );
+    }
 
     return {
       ...base,
       rawCount: raw.length,
       uniqueCount: unique.length,
-      conservativeCount: accepted.length,
+      conservativeCount: shaped.length,
       candidates: unique,
-      accepted: new Set(accepted.map((place) => place.providerPlaceId)),
-      rejections: new Map(
-        rejected.map((rejection) => [
-          rejection.candidate.providerPlaceId,
-          rejection.reason,
-        ]),
-      ),
+      accepted: new Set(shaped.map((place) => place.providerPlaceId)),
+      rejections: new Map([
+        ...rejected.map(
+          (rejection) =>
+            [rejection.candidate.providerPlaceId, rejection.reason] as const,
+        ),
+        ...[...cappedOut].map((id) => [id, "category_cap"] as const),
+      ]),
       ...curation,
     };
   } catch (error) {

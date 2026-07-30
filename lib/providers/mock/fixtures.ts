@@ -124,6 +124,9 @@ export const MOCK_PLACE_CANDIDATES: PlaceCandidate[] = FIXTURE_DEFINITIONS.map(
     commercialVenue: fixture.category === "market",
     exteriorObservable: true,
     reviewCount: fixture.reviewCount,
+    landmarkSignal: ["heritage", "architecture", "museum"].includes(
+      fixture.category,
+    ),
     hazards: [],
     groundedFacts: [makeFixtureFact(fixture.id, fixture.name)],
     visualSignals: [fixture.visualSignal],
