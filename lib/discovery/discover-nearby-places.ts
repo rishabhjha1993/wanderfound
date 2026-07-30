@@ -1,5 +1,5 @@
 import type {
-  AdventureDuration,
+  AdventureDayShape,
   AdventureMood,
   AdventurePartyMode,
 } from "@/lib/adventure/setup-session";
@@ -13,6 +13,7 @@ import {
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
+import { deriveSearchCentres } from "@/lib/discovery/search-centres";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { log } from "@/lib/logger";
 import type { PlacesProvider } from "@/lib/providers/contracts";
@@ -21,7 +22,7 @@ import { ProviderError } from "@/lib/providers/errors";
 
 export type DiscoverNearbyPlacesInput = {
   origin: GeoCoordinate;
-  durationMinutes: AdventureDuration;
+  dayShape: AdventureDayShape;
   mood: AdventureMood;
   partyMode: AdventurePartyMode;
   languageCode: string;
@@ -37,7 +38,7 @@ export async function discoverNearbyPlaces({
   placesProvider: PlacesProvider;
   aiCurator?: PlaceCurator;
 }) {
-  const policy = getDiscoveryPolicy(input.durationMinutes, input.mood);
+  const policy = getDiscoveryPolicy(input.dayShape, input.mood);
 
   /**
    * A mood that spans two kinds of place searches each side separately, so
@@ -48,40 +49,50 @@ export async function discoverNearbyPlaces({
     1,
     Math.floor(policy.candidateLimit / policy.searchGroups.length),
   );
+  // A day covers a city, and one Nearby Search answers a point. Sweeping
+  // several centres is the only way to see more than the twenty most prominent
+  // places around the player.
+  const centres = deriveSearchCentres(input.origin, policy.sweep);
   const candidates = [];
   const failures: unknown[] = [];
+  let searchCount = 0;
 
-  for (const categories of policy.searchGroups) {
-    try {
-      candidates.push(
-        ...(await placesProvider.nearby({
-          origin: input.origin,
-          radiusMeters: policy.radiusMeters,
-          maxResults: perGroupLimit,
-          categories,
-          languageCode: input.languageCode,
-          rankBy: policy.rankBy,
-          ...(input.regionCode ? { regionCode: input.regionCode } : {}),
-        })),
-      );
-    } catch (error) {
-      failures.push(error);
-      log("error", "places_discovery_failed", {
-        provider:
-          error instanceof ProviderError
-            ? error.providerId
-            : placesProvider.descriptor.id,
-        code: error instanceof ProviderError ? error.code : "unknown",
-        retryable: error instanceof ProviderError ? error.retryable : false,
-        categories: categories.join(","),
-        location_cell: coarseLocationCell(input.origin),
-      });
+  for (const centre of centres) {
+    for (const categories of policy.searchGroups) {
+      searchCount += 1;
+
+      try {
+        candidates.push(
+          ...(await placesProvider.nearby({
+            origin: centre,
+            radiusMeters: policy.searchRadiusMeters,
+            maxResults: perGroupLimit,
+            categories,
+            languageCode: input.languageCode,
+            rankBy: policy.rankBy,
+            ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+          })),
+        );
+      } catch (error) {
+        failures.push(error);
+        log("error", "places_discovery_failed", {
+          provider:
+            error instanceof ProviderError
+              ? error.providerId
+              : placesProvider.descriptor.id,
+          code: error instanceof ProviderError ? error.code : "unknown",
+          retryable: error instanceof ProviderError ? error.retryable : false,
+          categories: categories.join(","),
+          location_cell: coarseLocationCell(input.origin),
+        });
+      }
     }
   }
 
-  // One side failing leaves a usable if less balanced pool; every side failing
-  // means we know nothing about this area and must say so rather than pretend.
-  if (failures.length === policy.searchGroups.length) {
+  // A sweep is expected to lose some searches at the edges of a city, where a
+  // centre may fall in water or open country. Only a total failure means we
+  // know nothing about this area and must say so rather than pretend.
+  if (failures.length === searchCount) {
     throw failures[0];
   }
 
@@ -168,13 +179,24 @@ export async function discoverNearbyPlaces({
     candidate_count: uniqueCandidates.length,
     rejected_count: rejected.length,
     selected_count: places.length,
-    radius_meters: policy.radiusMeters,
+    search_radius_meters: policy.searchRadiusMeters,
+    // The cost of a generated day has to be a measured number, not an
+    // estimate: the sweep multiplies provider calls, and this is what decides
+    // whether the unlock price works.
+    search_count: searchCount,
+    failed_search_count: failures.length,
+    centre_count: centres.length,
+    day_shape: input.dayShape,
     mood: input.mood,
     location_cell: coarseLocationCell(input.origin),
   });
 
   return {
-    radiusMeters: policy.radiusMeters,
+    searchRadiusMeters: policy.searchRadiusMeters,
+    reachMeters: policy.reachMeters,
+    centreCount: centres.length,
+    searchCount,
+    failedSearchCount: failures.length,
     rankBy: policy.rankBy,
     retrievedCount: deduplicated.length,
     candidateCount: uniqueCandidates.length,

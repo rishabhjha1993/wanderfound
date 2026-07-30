@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  ADVENTURE_DAY_SHAPES,
   ADVENTURE_MOODS,
   ADVENTURE_PARTY_MODES,
 } from "@/lib/adventure/setup-session";
@@ -23,7 +24,7 @@ const debugRateLimiter = new FixedWindowRateLimiter({
 const DebugRequestSchema = z
   .object({
     origin: GeoCoordinateSchema,
-    durationMinutes: z.union([z.literal(30), z.literal(60)]),
+    dayShape: z.enum(ADVENTURE_DAY_SHAPES),
     mood: z.enum(ADVENTURE_MOODS),
     partyMode: z.enum(ADVENTURE_PARTY_MODES),
     languageCode: z
@@ -86,7 +87,10 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({
-      radiusMeters: result.radiusMeters,
+      searchRadiusMeters: result.searchRadiusMeters,
+      reachMeters: result.reachMeters,
+      centreCount: result.centreCount,
+      searchCount: result.searchCount,
       rankBy: result.rankBy,
       retrievedCount: result.retrievedCount,
       candidateCount: result.candidateCount,

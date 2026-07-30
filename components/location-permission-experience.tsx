@@ -497,7 +497,7 @@ function stepLabel(view: LocationView) {
 
 function trackSetupCompletion(setup: CompleteAdventureSetup) {
   trackProductEvent("setup_completed", {
-    duration_minutes: setup.durationMinutes,
+    day_shape: setup.dayShape,
     mood: setup.mood,
     party_mode: setup.partyMode,
   });

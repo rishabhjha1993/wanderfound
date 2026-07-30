@@ -1,23 +1,49 @@
 import type {
-  AdventureDuration,
+  AdventureDayShape,
   AdventureMood,
 } from "@/lib/adventure/setup-session";
 import type { PoolShape } from "@/lib/discovery/pool-balance";
 import type { PlaceCategory } from "@/lib/providers/domain";
 
-const DURATION_POLICY: Record<
-  AdventureDuration,
-  { radiusMeters: number; candidateLimit: number; shortlistLimit: number }
+/**
+ * How far a day reaches, and how the sweep covers it.
+ *
+ * `reachMeters` is how far from the player the day may travel, not how far
+ * anyone walks: walking happens inside pockets, and transport carries the
+ * player between them. `searchRadiusMeters` stays small because a wide search
+ * returns the same twenty prominent places spread thinner rather than more of
+ * them, which is the whole reason the sweep exists.
+ *
+ * `candidateLimit` is per search centre. A full day therefore gathers up to
+ * thirteen centres' worth of candidates before filtering, which is what makes
+ * genuinely distinct pockets possible.
+ */
+const DAY_POLICY: Record<
+  AdventureDayShape,
+  {
+    reachMeters: number;
+    searchRadiusMeters: number;
+    rings: number;
+    centresPerRing: number;
+    candidateLimit: number;
+    shortlistLimit: number;
+  }
 > = {
-  30: {
-    radiusMeters: 800,
+  half_day: {
+    reachMeters: 3_000,
+    searchRadiusMeters: 1_200,
+    rings: 1,
+    centresPerRing: 6,
     candidateLimit: 20,
-    shortlistLimit: 4,
+    shortlistLimit: 8,
   },
-  60: {
-    radiusMeters: 1_500,
+  full_day: {
+    reachMeters: 6_000,
+    searchRadiusMeters: 1_500,
+    rings: 2,
+    centresPerRing: 6,
     candidateLimit: 20,
-    shortlistLimit: 6,
+    shortlistLimit: 12,
   },
 };
 
@@ -115,25 +141,49 @@ const MOOD_SEARCH_GROUPS: Partial<Record<AdventureMood, PlaceCategory[][]>> = {
  * `prefer` decides who survives that cap: the place that matters, the place
  * nobody stops at, or simply the nearest.
  */
-const MOOD_POOL_SHAPE: Record<AdventureMood, PoolShape> = {
-  historical: { maxPerCategory: 3, prefer: "significant" },
-  culinary: { maxPerCategory: 4, prefer: "significant" },
-  strange: { maxPerCategory: 3, prefer: "obscure" },
-  beautiful: { maxPerCategory: 4, prefer: "significant" },
+const MOOD_PREFERENCE: Record<AdventureMood, PoolShape["prefer"]> = {
+  historical: "significant",
+  culinary: "significant",
+  strange: "obscure",
+  beautiful: "significant",
+};
+
+/**
+ * The cap has to scale with the day, not with a single search.
+ *
+ * At three per category it was right for the twenty places one search returns,
+ * and wrong the moment the sweep returned seventy-four: it cut a city down to
+ * nine candidates, which is not enough to build even two pockets from. The cap
+ * exists to stop one category dominating, not to shrink the pool.
+ */
+const MAX_PER_CATEGORY: Record<AdventureDayShape, number> = {
+  half_day: 6,
+  full_day: 10,
 };
 
 export function getDiscoveryPolicy(
-  durationMinutes: AdventureDuration,
+  dayShape: AdventureDayShape,
   mood: AdventureMood,
 ) {
   const preferObscure = MOODS_PREFERRING_OBSCURITY.includes(mood);
   const searchGroups = MOOD_SEARCH_GROUPS[mood] ?? [MOOD_CATEGORIES[mood]];
 
+  const day = DAY_POLICY[dayShape];
+
   return {
-    ...DURATION_POLICY[durationMinutes],
+    ...day,
+    sweep: {
+      reachMeters: day.reachMeters,
+      searchRadiusMeters: day.searchRadiusMeters,
+      rings: day.rings,
+      centresPerRing: day.centresPerRing,
+    },
     categories: [...MOOD_CATEGORIES[mood]],
     searchGroups: searchGroups.map((group) => [...group]),
-    poolShape: MOOD_POOL_SHAPE[mood],
+    poolShape: {
+      maxPerCategory: MAX_PER_CATEGORY[dayShape],
+      prefer: MOOD_PREFERENCE[mood],
+    } satisfies PoolShape,
     preferObscure,
     /**
      * Ranking shapes which twenty places the curator gets to choose between.

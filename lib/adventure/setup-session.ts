@@ -1,4 +1,9 @@
-export const ADVENTURE_DURATIONS = [30, 60] as const;
+/**
+ * The unit is a day, not an hour. A day is built from walkable pockets with
+ * ordinary transport between them, so the choice is how much of a day to give
+ * it rather than how many minutes of walking to allow.
+ */
+export const ADVENTURE_DAY_SHAPES = ["half_day", "full_day"] as const;
 export const ADVENTURE_MOODS = [
   "historical",
   "culinary",
@@ -11,27 +16,30 @@ export const ADVENTURE_PARTY_MODES = [
   "family",
 ] as const;
 
-export type AdventureDuration = (typeof ADVENTURE_DURATIONS)[number];
+export type AdventureDayShape = (typeof ADVENTURE_DAY_SHAPES)[number];
 export type AdventureMood = (typeof ADVENTURE_MOODS)[number];
 export type AdventurePartyMode = (typeof ADVENTURE_PARTY_MODES)[number];
 
 export type AdventureSetupDraft = {
-  durationMinutes: AdventureDuration | null;
+  dayShape: AdventureDayShape | null;
   mood: AdventureMood | null;
   partyMode: AdventurePartyMode | null;
 };
 
 export type CompleteAdventureSetup = {
-  durationMinutes: AdventureDuration;
+  dayShape: AdventureDayShape;
   mood: AdventureMood;
   partyMode: AdventurePartyMode;
 };
 
-const ADVENTURE_SETUP_SESSION_KEY = "wanderfound:adventure-setup:v1";
-const ADVENTURE_SETUP_SESSION_VERSION = 1;
+// v2: duration in minutes became a day shape. A stored v1 draft describes an
+// adventure this product no longer builds, so it is discarded rather than
+// migrated.
+const ADVENTURE_SETUP_SESSION_KEY = "wanderfound:adventure-setup:v2";
+const ADVENTURE_SETUP_SESSION_VERSION = 2;
 
 export const EMPTY_ADVENTURE_SETUP: AdventureSetupDraft = {
-  durationMinutes: null,
+  dayShape: null,
   mood: null,
   partyMode: null,
 };
@@ -107,9 +115,7 @@ export function isCompleteAdventureSetup(
   draft: AdventureSetupDraft,
 ): draft is CompleteAdventureSetup {
   return (
-    draft.durationMinutes !== null &&
-    draft.mood !== null &&
-    draft.partyMode !== null
+    draft.dayShape !== null && draft.mood !== null && draft.partyMode !== null
   );
 }
 
@@ -118,9 +124,9 @@ function isValidDraft(
 ): draft is AdventureSetupDraft {
   return Boolean(
     draft &&
-    (draft.durationMinutes === null ||
-      (draft.durationMinutes !== undefined &&
-        ADVENTURE_DURATIONS.includes(draft.durationMinutes))) &&
+    (draft.dayShape === null ||
+      (draft.dayShape !== undefined &&
+        ADVENTURE_DAY_SHAPES.includes(draft.dayShape))) &&
     (draft.mood === null ||
       (draft.mood !== undefined && ADVENTURE_MOODS.includes(draft.mood))) &&
     (draft.partyMode === null ||

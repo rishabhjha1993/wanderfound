@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ADVENTURE_MOODS,
   ADVENTURE_PARTY_MODES,
+  type AdventureDayShape,
   type AdventureMood,
   type AdventurePartyMode,
 } from "@/lib/adventure/setup-session";
@@ -27,7 +28,10 @@ type CandidateRow = {
 };
 
 type DebugResult = {
-  radiusMeters: number;
+  searchRadiusMeters: number;
+  reachMeters: number;
+  centreCount: number;
+  searchCount: number;
   rankBy: string;
   retrievedCount: number;
   candidateCount: number;
@@ -45,7 +49,7 @@ const DEFAULT_ORIGIN = { latitude: "15.4989", longitude: "73.8317" };
 export function PlayabilityDebugger() {
   const [latitude, setLatitude] = useState(DEFAULT_ORIGIN.latitude);
   const [longitude, setLongitude] = useState(DEFAULT_ORIGIN.longitude);
-  const [durationMinutes, setDurationMinutes] = useState<30 | 60>(60);
+  const [dayShape, setDayShape] = useState<AdventureDayShape>("full_day");
   const [mood, setMood] = useState<AdventureMood>("historical");
   const [partyMode, setPartyMode] = useState<AdventurePartyMode>("solo");
   const [useAiCurator, setUseAiCurator] = useState(true);
@@ -66,7 +70,7 @@ export function PlayabilityDebugger() {
             latitude: Number(latitude),
             longitude: Number(longitude),
           },
-          durationMinutes,
+          dayShape,
           mood,
           partyMode,
           languageCode: "en",
@@ -140,16 +144,16 @@ export function PlayabilityDebugger() {
           />
         </label>
         <label className={styles.field}>
-          Duration
+          Day shape
           <select
             className={styles.input}
-            value={durationMinutes}
+            value={dayShape}
             onChange={(event) =>
-              setDurationMinutes(Number(event.target.value) as 30 | 60)
+              setDayShape(event.target.value as AdventureDayShape)
             }
           >
-            <option value={30}>30 minutes</option>
-            <option value={60}>60 minutes</option>
+            <option value="half_day">Half a day</option>
+            <option value="full_day">A full day</option>
           </select>
         </label>
         <label className={styles.field}>
@@ -218,7 +222,9 @@ export function PlayabilityDebugger() {
             <Stat label="Retrieved" value={result.retrievedCount} />
             <Stat label="Passed filters" value={result.candidateCount} />
             <Stat label="Rejected" value={result.rejectedCount} />
-            <Stat label="Radius" value={`${result.radiusMeters} m`} />
+            <Stat label="Reach" value={`${result.reachMeters} m`} />
+            <Stat label="Centres" value={String(result.centreCount)} />
+            <Stat label="Searches" value={String(result.searchCount)} />
             <Stat label="Ranked by" value={result.rankBy} />
             <Stat label="Chosen by" value={result.selectionMethod} />
           </section>

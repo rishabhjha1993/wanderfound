@@ -26,11 +26,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   ADVENTURE_MOODS,
-  type AdventureDuration,
+  type AdventureDayShape,
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
 import { filterCandidates } from "@/lib/discovery/candidate-filters";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
+import {
+  deriveSearchCentres,
+  sweepCallCount,
+} from "@/lib/discovery/search-centres";
 import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
@@ -177,13 +181,13 @@ const LOCATIONS: AuditLocation[] = [
 ];
 
 const DEFAULT_LOCATION_SLUGS = ["panjim-fontainhas"];
-const DURATION: AdventureDuration = 60;
+const DAY_SHAPE: AdventureDayShape = "half_day";
 const REQUEST_SPACING_MS = 350;
 const VIABILITY_BAR = 8;
 
 type MoodResult = {
   mood: AdventureMood;
-  radiusMeters: number;
+  searchRadiusMeters: number;
   rankBy: string;
   rawCount: number;
   uniqueCount: number;
@@ -240,7 +244,11 @@ async function main() {
       total +
       moods.reduce(
         (perLocation, mood) =>
-          perLocation + getDiscoveryPolicy(DURATION, mood).searchGroups.length,
+          perLocation +
+          sweepCallCount(
+            getDiscoveryPolicy(DAY_SHAPE, mood).sweep,
+            getDiscoveryPolicy(DAY_SHAPE, mood).searchGroups.length,
+          ),
         0,
       ),
     0,
@@ -323,10 +331,10 @@ async function auditOne(
   location: AuditLocation,
   mood: AdventureMood,
 ): Promise<MoodResult> {
-  const policy = getDiscoveryPolicy(DURATION, mood);
+  const policy = getDiscoveryPolicy(DAY_SHAPE, mood);
   const base: MoodResult = {
     mood,
-    radiusMeters: policy.radiusMeters,
+    searchRadiusMeters: policy.searchRadiusMeters,
     rankBy: policy.rankBy,
     rawCount: 0,
     uniqueCount: 0,
@@ -347,22 +355,26 @@ async function auditOne(
       Math.floor(policy.candidateLimit / policy.searchGroups.length),
     );
     const raw: PlaceCandidate[] = [];
+    const centres = deriveSearchCentres(
+      { latitude: location.latitude, longitude: location.longitude },
+      policy.sweep,
+    );
 
-    for (const categories of policy.searchGroups) {
-      raw.push(
-        ...(await provider.nearby({
-          origin: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-          },
-          radiusMeters: policy.radiusMeters,
-          maxResults: perGroupLimit,
-          categories,
-          languageCode: "en",
-          regionCode: location.regionCode,
-          rankBy: policy.rankBy,
-        })),
-      );
+    for (const centre of centres) {
+      for (const categories of policy.searchGroups) {
+        raw.push(
+          ...(await provider.nearby({
+            origin: centre,
+            radiusMeters: policy.searchRadiusMeters,
+            maxResults: perGroupLimit,
+            categories,
+            languageCode: "en",
+            regionCode: location.regionCode,
+            rankBy: policy.rankBy,
+          })),
+        );
+        await delay(REQUEST_SPACING_MS);
+      }
     }
 
     const unique = deduplicatePlaceCandidates(raw);
@@ -451,7 +463,7 @@ async function writeReport(results: LocationResult[]) {
     "# Wanderfound candidate audit",
     "",
     `Generated: ${generatedAt}`,
-    `Duration profile: ${DURATION} minutes`,
+    `Day shape: ${DAY_SHAPE}`,
     `Viability bar: ${VIABILITY_BAR} surviving candidates`,
     "",
     "`Unique` is after deduplication. `Conservative` applies the WF-202a stance",
@@ -501,7 +513,10 @@ async function writeReport(results: LocationResult[]) {
     );
 
     for (const result of moods) {
-      lines.push(`#### ${result.mood} (${result.radiusMeters} m)`, "");
+      lines.push(
+        `#### ${result.mood} (${result.searchRadiusMeters} m per centre)`,
+        "",
+      );
 
       if (result.error) {
         lines.push(`Provider error: ${result.error}`, "");

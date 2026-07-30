@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  type AdventureDuration,
+  type AdventureDayShape,
   type AdventureMood,
   type AdventurePartyMode,
   type AdventureSetupDraft,
@@ -15,24 +15,24 @@ import type { ForegroundLocation } from "@/lib/location/request-foreground-locat
 import styles from "./adventure-setup.module.css";
 
 const DURATION_OPTIONS: Array<{
-  value: AdventureDuration;
+  value: AdventureDayShape;
   label: string;
   eyebrow: string;
   description: string;
 }> = [
   {
-    value: 30,
-    label: "A quick mystery",
-    eyebrow: "30 minutes",
+    value: "half_day",
+    label: "An afternoon of it",
+    eyebrow: "Half a day",
     description:
-      "A compact loop with a few discoveries—easy to fit between other plans.",
+      "Two corners of the city to explore on foot, with a short ride between them.",
   },
   {
-    value: 60,
-    label: "The fuller tale",
-    eyebrow: "60 minutes",
+    value: "full_day",
+    label: "The whole day",
+    eyebrow: "A full day",
     description:
-      "More walking, more turns, and enough room for the story to properly unfold.",
+      "Three or four neighbourhoods, further afield, with room for the story to unfold.",
   },
 ];
 
@@ -106,7 +106,7 @@ export function AdventureSetup({
   const [draft, setDraft] = useState(initialDraft);
   const completedChoiceCount = useMemo(
     () =>
-      [draft.durationMinutes, draft.mood, draft.partyMode].filter(
+      [draft.dayShape, draft.mood, draft.partyMode].filter(
         (value) => value !== null,
       ).length,
     [draft],
@@ -153,15 +153,13 @@ export function AdventureSetup({
           {DURATION_OPTIONS.map((option) => (
             <Choice
               key={option.value}
-              checked={draft.durationMinutes === option.value}
+              checked={draft.dayShape === option.value}
               description={option.description}
               eyebrow={option.eyebrow}
               group="duration"
               label={option.label}
               value={String(option.value)}
-              onChange={() =>
-                updateDraft({ ...draft, durationMinutes: option.value })
-              }
+              onChange={() => updateDraft({ ...draft, dayShape: option.value })}
             />
           ))}
         </div>
@@ -283,14 +281,14 @@ export function AdventureSetupComplete({
       <h1>Your kind of mystery is ready.</h1>
       <p className={styles.description}>
         Wanderfound now knows the shape of the adventure. Next, we’ll ask Google
-        for real nearby places and safe walking routes, then let the AI weave
-        the clue trail.
+        for real places across the city and safe walking routes inside each
+        pocket, then let the AI weave the clue trail.
       </p>
 
       <dl className={styles.summary}>
         <div>
           <dt>Time</dt>
-          <dd>{setup.durationMinutes} minutes</dd>
+          <dd>{setup.dayShape === "half_day" ? "Half a day" : "A full day"}</dd>
         </div>
         <div>
           <dt>Mood</dt>
@@ -352,7 +350,10 @@ type DiscoveredPlace = {
 
 type DiscoveryResponse = {
   error?: string;
-  radiusMeters: number;
+  searchRadiusMeters: number;
+  reachMeters: number;
+  centreCount: number;
+  searchCount: number;
   candidateCount: number;
   selectionMethod: "sol" | "deterministic";
   places: DiscoveredPlace[];
@@ -405,14 +406,14 @@ function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
         </ol>
       ) : (
         <p className={styles.emptyDiscovery}>
-          Google returned no suitable candidates inside this first walking
+          Google returned no suitable candidates anywhere inside this first
           radius. A later step will safely widen the circle once.
         </p>
       )}
 
       <p className={styles.googleAttribution}>
         Places supplied by {result.attribution} · searched within{" "}
-        {(result.radiusMeters / 1_000).toFixed(1)} km
+        {(result.reachMeters / 1_000).toFixed(1)} km
       </p>
     </section>
   );

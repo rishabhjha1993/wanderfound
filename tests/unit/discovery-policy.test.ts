@@ -3,22 +3,40 @@ import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { ADVENTURE_MOODS } from "@/lib/adventure/setup-session";
 
 describe("discovery policy", () => {
-  it("keeps a 30-minute adventure compact", () => {
-    expect(getDiscoveryPolicy(30, "historical")).toMatchObject({
-      radiusMeters: 800,
+  it("keeps a half day within a shorter reach", () => {
+    expect(getDiscoveryPolicy("half_day", "historical")).toMatchObject({
+      reachMeters: 3_000,
       candidateLimit: 20,
-      shortlistLimit: 4,
       categories: expect.arrayContaining(["heritage", "museum"]),
     });
   });
 
-  it("gives a 60-minute adventure a wider search without a city boundary", () => {
-    expect(getDiscoveryPolicy(60, "beautiful")).toMatchObject({
-      radiusMeters: 1_500,
+  it("lets a full day reach further without a city boundary", () => {
+    expect(getDiscoveryPolicy("full_day", "beautiful")).toMatchObject({
+      reachMeters: 6_000,
       candidateLimit: 20,
-      shortlistLimit: 6,
       categories: expect.arrayContaining(["garden", "viewpoint", "waterfront"]),
     });
+  });
+
+  // Reach is how far the day travels; walking only ever happens inside a
+  // pocket. Each individual search stays small because a wide radius returns
+  // the same prominent places spread thinner rather than more of them.
+  it("keeps each search small however far the day reaches", () => {
+    for (const shape of ["half_day", "full_day"] as const) {
+      const policy = getDiscoveryPolicy(shape, "historical");
+
+      expect(policy.searchRadiusMeters).toBeLessThanOrEqual(1_500);
+      expect(policy.searchRadiusMeters).toBeLessThan(policy.reachMeters);
+    }
+  });
+
+  it("gives a full day more reach and more centres than a half day", () => {
+    const half = getDiscoveryPolicy("half_day", "historical");
+    const full = getDiscoveryPolicy("full_day", "historical");
+
+    expect(full.reachMeters).toBeGreaterThan(half.reachMeters);
+    expect(full.sweep.rings).toBeGreaterThan(half.sweep.rings);
   });
 
   // Trail viability requires at least three discovery categories. The first
@@ -27,13 +45,13 @@ describe("discovery policy", () => {
   it("gives every mood enough categories to satisfy the trail-diversity rule", () => {
     for (const mood of ADVENTURE_MOODS) {
       expect(
-        getDiscoveryPolicy(60, mood).categories.length,
+        getDiscoveryPolicy("full_day", mood).categories.length,
       ).toBeGreaterThanOrEqual(3);
     }
   });
 
   it("reaches beyond food for a culinary adventure", () => {
-    expect(getDiscoveryPolicy(60, "culinary").categories).toEqual(
+    expect(getDiscoveryPolicy("full_day", "culinary").categories).toEqual(
       expect.arrayContaining(["culinary", "market", "heritage"]),
     );
   });
@@ -41,7 +59,7 @@ describe("discovery policy", () => {
   // Strange is historical or culinary substance that is off the beaten track,
   // not a category Google publishes.
   it("builds strange from the historical and culinary pool, and prefers obscurity", () => {
-    const policy = getDiscoveryPolicy(60, "strange");
+    const policy = getDiscoveryPolicy("full_day", "strange");
 
     expect(policy.preferObscure).toBe(true);
     expect(policy.categories).toEqual(
@@ -52,7 +70,7 @@ describe("discovery policy", () => {
 
   it("does not chase obscurity for the other moods", () => {
     for (const mood of ["historical", "culinary", "beautiful"] as const) {
-      expect(getDiscoveryPolicy(60, mood).preferObscure).toBe(false);
+      expect(getDiscoveryPolicy("full_day", mood).preferObscure).toBe(false);
     }
   });
 
@@ -60,7 +78,7 @@ describe("discovery policy", () => {
   // single chapel, because whichever kind of place sits nearest takes the whole
   // twenty-result list.
   it("searches the history and cuisine sides of strange separately", () => {
-    const groups = getDiscoveryPolicy(60, "strange").searchGroups;
+    const groups = getDiscoveryPolicy("full_day", "strange").searchGroups;
 
     expect(groups).toHaveLength(2);
     expect(groups[0]).toEqual(expect.arrayContaining(["heritage"]));
@@ -70,7 +88,7 @@ describe("discovery policy", () => {
 
   it("uses a single search for moods that do not span two kinds of place", () => {
     for (const mood of ["culinary", "beautiful"] as const) {
-      const policy = getDiscoveryPolicy(60, mood);
+      const policy = getDiscoveryPolicy("full_day", mood);
 
       expect(policy.searchGroups).toHaveLength(1);
       expect(policy.searchGroups[0]).toEqual(policy.categories);
@@ -80,7 +98,7 @@ describe("discovery policy", () => {
   // Places of worship are the densest mappable category in most Indian
   // neighbourhoods and took twelve of nineteen "historical" candidates.
   it("gives heritage its own search so worship does not crowd it out", () => {
-    const groups = getDiscoveryPolicy(60, "historical").searchGroups;
+    const groups = getDiscoveryPolicy("full_day", "historical").searchGroups;
 
     expect(groups).toHaveLength(2);
     expect(groups[0]).toEqual(
@@ -90,25 +108,42 @@ describe("discovery policy", () => {
     expect(groups[1]).toContain("religious");
   });
 
-  it("caps how much of a pool any one category may take", () => {
+  // The cap stops one category dominating; it must not shrink the pool. At
+  // three per category it cut a seventy-four place city sweep down to nine,
+  // which is not enough to build even two pockets from.
+  it("scales the category cap with the day rather than with one search", () => {
+    const half = getDiscoveryPolicy("half_day", "historical");
+    const full = getDiscoveryPolicy("full_day", "historical");
+
+    expect(half.poolShape.maxPerCategory).toBeGreaterThan(3);
+    expect(full.poolShape.maxPerCategory).toBeGreaterThan(
+      half.poolShape.maxPerCategory,
+    );
+  });
+
+  it("caps every mood, whatever end of the range it prefers", () => {
     for (const mood of ADVENTURE_MOODS) {
       expect(
-        getDiscoveryPolicy(60, mood).poolShape.maxPerCategory,
-      ).toBeLessThanOrEqual(4);
+        getDiscoveryPolicy("full_day", mood).poolShape.maxPerCategory,
+      ).toBeGreaterThan(0);
     }
   });
 
   // Historical wants the building that matters; strange wants the one nobody
   // stops at. Without this they collapse into the same adventure.
   it("points each mood at the end of the prominence range it actually wants", () => {
-    expect(getDiscoveryPolicy(60, "historical").poolShape.prefer).toBe(
+    expect(getDiscoveryPolicy("full_day", "historical").poolShape.prefer).toBe(
       "significant",
     );
-    expect(getDiscoveryPolicy(60, "strange").poolShape.prefer).toBe("obscure");
+    expect(getDiscoveryPolicy("full_day", "strange").poolShape.prefer).toBe(
+      "obscure",
+    );
   });
 
   it("ranks an obscurity-seeking mood by distance so the pool is not popularity-led", () => {
-    expect(getDiscoveryPolicy(60, "strange").rankBy).toBe("distance");
-    expect(getDiscoveryPolicy(60, "historical").rankBy).toBe("popularity");
+    expect(getDiscoveryPolicy("full_day", "strange").rankBy).toBe("distance");
+    expect(getDiscoveryPolicy("full_day", "historical").rankBy).toBe(
+      "popularity",
+    );
   });
 });
