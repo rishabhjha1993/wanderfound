@@ -30,6 +30,7 @@ import {
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
 import { filterCandidates } from "@/lib/discovery/candidate-filters";
+import { findPockets } from "@/lib/discovery/pockets";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import {
   deriveSearchCentres,
@@ -198,6 +199,7 @@ type MoodResult = {
   commercial: number;
   candidates: PlaceCandidate[];
   accepted: Set<string>;
+  pockets: Array<{ span: number; categories: string[]; names: string[] }>;
   rejections: Map<string, string>;
   curatedIds: string[];
   curationError?: string;
@@ -345,6 +347,7 @@ async function auditOne(
     commercial: 0,
     candidates: [],
     accepted: new Set(),
+    pockets: [],
     rejections: new Map(),
     curatedIds: [],
   };
@@ -399,11 +402,16 @@ async function auditOne(
     // Shape the pool exactly as discovery does. Reporting the unshaped pool
     // hid the category cap entirely and made the audit disagree with the
     // product about what a mood actually offers.
-    const shaped = shapeCandidatePool(
-      accepted,
-      { latitude: location.latitude, longitude: location.longitude },
-      policy.poolShape,
-    );
+    // Same order as discovery: cluster first, then cap inside each pocket.
+    const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
+      ...pocket,
+      places: shapeCandidatePool(
+        pocket.places,
+        pocket.centre,
+        policy.poolShape,
+      ),
+    }));
+    const shaped = pockets.flatMap((pocket) => pocket.places);
     const cappedOut = new Set(
       accepted
         .filter(
@@ -430,6 +438,11 @@ async function auditOne(
       rawCount: raw.length,
       uniqueCount: unique.length,
       conservativeCount: shaped.length,
+      pockets: pockets.map((pocket) => ({
+        span: pocket.spanMetres,
+        categories: pocket.categories,
+        names: pocket.places.map((place) => place.name),
+      })),
       candidates: unique,
       accepted: new Set(shaped.map((place) => place.providerPlaceId)),
       rejections: new Map([
@@ -535,6 +548,20 @@ async function writeReport(results: LocationResult[]) {
         `- Categories: ${categories || "none"}`,
         "",
       );
+
+      if (result.pockets.length > 0) {
+        lines.push(`- **Pockets found:** ${result.pockets.length}`, "");
+
+        for (const [index, pocket] of result.pockets.entries()) {
+          lines.push(
+            `  ${index + 1}. ${pocket.names.length} places, ${pocket.span} m across (${pocket.categories.join(", ")}): ${pocket.names.join(", ")}`,
+          );
+        }
+
+        lines.push("");
+      } else {
+        lines.push("- **Pockets found:** none", "");
+      }
 
       if (result.curationError) {
         lines.push(`Curation failed: ${result.curationError}`, "");

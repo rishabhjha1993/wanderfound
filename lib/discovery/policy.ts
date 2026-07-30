@@ -2,6 +2,7 @@ import type {
   AdventureDayShape,
   AdventureMood,
 } from "@/lib/adventure/setup-session";
+import type { PocketPolicy } from "@/lib/discovery/pockets";
 import type { PoolShape } from "@/lib/discovery/pool-balance";
 import type { PlaceCategory } from "@/lib/providers/domain";
 
@@ -161,6 +162,25 @@ const MAX_PER_CATEGORY: Record<AdventureDayShape, number> = {
   full_day: 10,
 };
 
+/**
+ * What makes a group of places a pocket.
+ *
+ * `linkMetres` is the step by which a pocket grows, not its width: places join
+ * the same pocket when each is a short walk from the next, which is how a
+ * neighbourhood actually feels. `maxSpanMetres` then stops that chaining from
+ * running the length of a city and calling it one walk.
+ *
+ * `minPlaces` is about worth rather than mechanics. Two places do not justify
+ * a journey across town, and offering them as a chapter is how a day becomes
+ * padding.
+ */
+const POCKET_POLICY: PocketPolicy = {
+  linkMetres: 350,
+  minPlaces: 3,
+  maxSpanMetres: 1_200,
+  minCategories: 2,
+};
+
 export function getDiscoveryPolicy(
   dayShape: AdventureDayShape,
   mood: AdventureMood,
@@ -184,6 +204,7 @@ export function getDiscoveryPolicy(
       maxPerCategory: MAX_PER_CATEGORY[dayShape],
       prefer: MOOD_PREFERENCE[mood],
     } satisfies PoolShape,
+    pocket: POCKET_POLICY,
     preferObscure,
     /**
      * Ranking shapes which twenty places the curator gets to choose between.

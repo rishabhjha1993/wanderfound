@@ -12,6 +12,7 @@ import {
   DeterministicPlaceCurator,
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
+import { findPockets } from "@/lib/discovery/pockets";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deriveSearchCentres } from "@/lib/discovery/search-centres";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
@@ -100,14 +101,22 @@ export async function discoverNearbyPlaces({
   // Filters run before curation so that no AI response can reinstate a
   // candidate the deterministic rules rejected.
   const { accepted, rejected } = filterCandidates(deduplicated);
-  // Capping each category's share is what stops the densest thing on the map
-  // becoming the whole adventure. The curator can only choose from what it is
-  // handed, so balance has to be decided before it sees anything.
-  const uniqueCandidates = shapeCandidatePool(
-    accepted,
-    input.origin,
-    policy.poolShape,
-  );
+
+  // Clustering runs before the category cap, and the order matters.
+  //
+  // Capping the whole city first kept only the most significant places, and
+  // significance concentrates in the centre: a seventy-four place sweep of
+  // Panjim collapsed to a single pocket because every outlying place had
+  // already been cut. Pockets are about where a day can be walked, so they are
+  // formed from everything that survived the safety filters.
+  const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
+    ...pocket,
+    // The cap then applies inside each pocket, which is what the player
+    // actually experiences. One category dominating a pocket is the problem;
+    // one category dominating a city is not something a player ever sees.
+    places: shapeCandidatePool(pocket.places, pocket.centre, policy.poolShape),
+  }));
+  const uniqueCandidates = pockets.flatMap((pocket) => pocket.places);
 
   if (rejected.length > 0) {
     log("info", "places_candidates_rejected", {
@@ -186,6 +195,11 @@ export async function discoverNearbyPlaces({
     search_count: searchCount,
     failed_search_count: failures.length,
     centre_count: centres.length,
+    pocket_count: pockets.length,
+    pocketed_place_count: pockets.reduce(
+      (total, pocket) => total + pocket.places.length,
+      0,
+    ),
     day_shape: input.dayShape,
     mood: input.mood,
     location_cell: coarseLocationCell(input.origin),
@@ -203,6 +217,8 @@ export async function discoverNearbyPlaces({
     selectionMethod,
     /** Everything that survived the filters, whether or not it was selected. */
     candidates: uniqueCandidates,
+    /** The walkable neighbourhoods a day can actually be built from. */
+    pockets,
     places,
     rejected,
   };
