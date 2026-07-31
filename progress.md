@@ -12,8 +12,8 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-208/209 — region-wide discovery and pockets**
-- Next ticket: **WF-208a — verify selected places for hours and access**
+- Latest completed ticket: **WF-208a — verify selected places**
+- Next ticket: **WF-203 — walking routes inside each pocket**
 
 Production is deployed and healthy, with live credentials. Google sign-in,
 foreground location, the custom map, adventure setup, provider contracts, and
@@ -45,9 +45,10 @@ Real data has contradicted an assumption at almost every step; see the 30 and
 
 ### Two honest caveats
 
-**Opening hours are unknown for everything Wikidata returns.** Nothing yet
-checks whether a place is open, ticketed or reachable today. That is WF-208a,
-and it is the next ticket for a reason.
+**A place can still be unverified.** Selected places are now checked against
+Google for hours, access and exact position, but only where a confident match
+exists on both name and position. From Dwarka six of eight matched; the rest
+keep an honest "unknown" rather than a guess.
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -183,10 +184,9 @@ an assumption rather than because the plan read badly.
 5. ~~**WF-209 — Pocket clustering**~~ — done. Places group into walkable
    neighbourhoods, each needing two categories and one place worth the journey.
 
-6. **WF-208a — Verify selected places**
-   - Effort: Medium.
-   - Wikidata knows what a place is and nothing about whether it is open today.
-   - A handful of Google calls for the selected places only, never the region.
+6. ~~**WF-208a — Verify selected places**~~ — done. Eight Google calls per day,
+   for the shortlist only. A place that turns out to be permanently closed is
+   dropped; a provider outage leaves it unverified rather than deleting it.
 
 7. **WF-203 — Walking routes and duration matrix**
    - Effort: High.

@@ -1041,7 +1041,7 @@ Acceptance:
 - [x] Discover the region's notable places from a knowledge source.
 - [x] Sweep several search centres for what no knowledge source lists.
 - [x] Cluster candidates into walkable pockets.
-- [ ] Verify selected places against a provider for hours and access.
+- [x] Verify selected places against a provider for hours and access.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
@@ -2042,11 +2042,17 @@ Depends on: WF-208, WF-209
 Wikidata knows what a place _is_, and nothing about whether it is open, ticketed
 or reachable today. Every place that reaches a trail needs that filled in.
 
-- [ ] Match selected places to a provider entry with a confidence threshold.
-- [ ] Fill opening hours, access and exact position from the match.
-- [ ] Leave the place unverified rather than guess when no confident match exists.
-- [ ] Keep verification to the selected places, not the whole region.
-- [ ] Record the provider spend per generated day.
+- [x] Match selected places to a provider entry with a confidence threshold.
+- [x] Fill opening hours, access and exact position from the match.
+- [x] Leave the place unverified rather than guess when no confident match exists.
+- [x] Keep verification to the selected places, not the whole region.
+- [x] Record the provider spend per generated day.
+
+Both a name and a position bar must be cleared. A name alone matches the wrong
+"St. Mary's" in the next district; a position alone matches the cafe across the
+road from the monument. From Dwarka six of eight selected places matched, for
+eight calls, and Purana Qila and the Ghalib museum arrived with real opening
+hours where the knowledge source had none.
 
 Done when:
 

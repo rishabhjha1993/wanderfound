@@ -14,7 +14,11 @@ export type ProviderErrorCode =
   | "unsupported";
 
 export type ProviderOperation =
-  "enrich_place" | "nearby_places" | "normalise_response" | "walking_route";
+  | "enrich_place"
+  | "nearby_places"
+  | "normalise_response"
+  | "verify_place"
+  | "walking_route";
 
 export type ProviderErrorOptions = {
   providerId: string;
