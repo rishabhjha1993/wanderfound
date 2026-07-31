@@ -3,9 +3,9 @@ import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { ADVENTURE_MOODS } from "@/lib/adventure/setup-session";
 
 describe("discovery policy", () => {
-  it("keeps a half day within a shorter reach", () => {
+  it("lets a half day reach across a city, not a neighbourhood", () => {
     expect(getDiscoveryPolicy("half_day", "historical")).toMatchObject({
-      reachMeters: 3_000,
+      reachMeters: 20_000,
       candidateLimit: 20,
       categories: expect.arrayContaining(["heritage", "museum"]),
     });
@@ -13,7 +13,7 @@ describe("discovery policy", () => {
 
   it("lets a full day reach further without a city boundary", () => {
     expect(getDiscoveryPolicy("full_day", "beautiful")).toMatchObject({
-      reachMeters: 6_000,
+      reachMeters: 45_000,
       candidateLimit: 20,
       categories: expect.arrayContaining(["garden", "viewpoint", "waterfront"]),
     });
@@ -28,6 +28,9 @@ describe("discovery policy", () => {
 
       expect(policy.searchRadiusMeters).toBeLessThanOrEqual(1_500);
       expect(policy.searchRadiusMeters).toBeLessThan(policy.reachMeters);
+      // The proximity sweep stays near the player; the region is the
+      // knowledge source's job.
+      expect(policy.sweep.reachMeters).toBeLessThan(policy.reachMeters);
     }
   });
 

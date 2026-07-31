@@ -29,19 +29,14 @@ import {
   type AdventureDayShape,
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
-import { filterCandidates } from "@/lib/discovery/candidate-filters";
-import { findPockets } from "@/lib/discovery/pockets";
-import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
-import {
-  deriveSearchCentres,
-  sweepCallCount,
-} from "@/lib/discovery/search-centres";
-import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
+import { sweepCallCount } from "@/lib/discovery/search-centres";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
+import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import type { PlaceCandidate } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import { GooglePlacesProvider } from "@/lib/providers/google";
+import { WikidataPlacesProvider } from "@/lib/providers/wikidata";
 
 type AuditLocation = {
   slug: string;
@@ -81,6 +76,14 @@ const LOCATIONS: AuditLocation[] = [
     character: "monument-dense, low commercial",
     latitude: 28.5245,
     longitude: 77.1855,
+    regionCode: "IN",
+  },
+  {
+    slug: "dwarka-delhi",
+    label: "Dwarka, New Delhi",
+    character: "planned residential suburb, far from the old city",
+    latitude: 28.5921,
+    longitude: 77.046,
     regionCode: "IN",
   },
   {
@@ -262,6 +265,7 @@ async function main() {
   );
 
   const provider = new GooglePlacesProvider();
+  const knowledgeProvider = new WikidataPlacesProvider();
   const curator =
     options.curate && process.env.AI_API_KEY
       ? new OpenAIPlaceCurator()
@@ -280,7 +284,9 @@ async function main() {
 
     for (const mood of moods) {
       process.stdout.write(`  ${location.slug} / ${mood} ... `);
-      moodResults.push(await auditOne(provider, curator, location, mood));
+      moodResults.push(
+        await auditOne(provider, knowledgeProvider, curator, location, mood),
+      );
       console.info("done");
       await delay(REQUEST_SPACING_MS);
     }
@@ -292,43 +298,9 @@ async function main() {
   console.info(`\nReport written to ${reportPath}`);
 }
 
-/**
- * Runs the real curator over the pool so the report shows what the product
- * would actually offer a player, not just what Google returned. Deciding what
- * counts as off the beaten track is the curator's judgement, so the only
- * honest way to review that judgement is to look at its picks.
- */
-async function curate(
-  curator: OpenAIPlaceCurator,
-  candidates: PlaceCandidate[],
-  location: AuditLocation,
-  mood: AdventureMood,
-  policy: ReturnType<typeof getDiscoveryPolicy>,
-) {
-  try {
-    return {
-      curatedIds: await curator.curate({
-        candidates,
-        origin: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        mood,
-        partyMode: "solo" as const,
-        limit: policy.shortlistLimit,
-        preferObscure: policy.preferObscure,
-      }),
-    };
-  } catch (error) {
-    return {
-      curatedIds: [],
-      curationError: error instanceof Error ? error.message : "unknown error",
-    };
-  }
-}
-
 async function auditOne(
   provider: GooglePlacesProvider,
+  knowledgeProvider: WikidataPlacesProvider,
   curator: OpenAIPlaceCurator | undefined,
   location: AuditLocation,
   mood: AdventureMood,
@@ -353,38 +325,29 @@ async function auditOne(
   };
 
   try {
-    const perGroupLimit = Math.max(
-      1,
-      Math.floor(policy.candidateLimit / policy.searchGroups.length),
-    );
-    const raw: PlaceCandidate[] = [];
-    const centres = deriveSearchCentres(
-      { latitude: location.latitude, longitude: location.longitude },
-      policy.sweep,
-    );
+    // Runs the product's own pipeline rather than a copy of it. Two earlier
+    // versions of this script reimplemented the steps and drifted, reporting a
+    // pool the product would never have produced.
+    const result = await discoverNearbyPlaces({
+      input: {
+        origin: { latitude: location.latitude, longitude: location.longitude },
+        dayShape: DAY_SHAPE,
+        mood,
+        partyMode: "solo",
+        languageCode: "en",
+        regionCode: location.regionCode,
+      },
+      placesProvider: provider,
+      knowledgeProvider,
+      ...(curator ? { aiCurator: curator } : {}),
+    });
 
-    for (const centre of centres) {
-      for (const categories of policy.searchGroups) {
-        raw.push(
-          ...(await provider.nearby({
-            origin: centre,
-            radiusMeters: policy.searchRadiusMeters,
-            maxResults: perGroupLimit,
-            categories,
-            languageCode: "en",
-            regionCode: location.regionCode,
-            rankBy: policy.rankBy,
-          })),
-        );
-        await delay(REQUEST_SPACING_MS);
-      }
-    }
+    for (const candidate of result.candidates) {
+      base.categories.set(
+        candidate.primaryCategory,
+        (base.categories.get(candidate.primaryCategory) ?? 0) + 1,
+      );
 
-    const unique = deduplicatePlaceCandidates(raw);
-
-    // Category counts are taken from the shaped pool below, since that is what
-    // the curator actually sees.
-    for (const candidate of unique) {
       if (candidate.openingStatus === "open") {
         base.openNow += 1;
       }
@@ -398,61 +361,30 @@ async function auditOne(
       }
     }
 
-    const { accepted, rejected } = filterCandidates(unique);
-    // Shape the pool exactly as discovery does. Reporting the unshaped pool
-    // hid the category cap entirely and made the audit disagree with the
-    // product about what a mood actually offers.
-    // Same order as discovery: cluster first, then cap inside each pocket.
-    const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
-      ...pocket,
-      places: shapeCandidatePool(
-        pocket.places,
-        pocket.centre,
-        policy.poolShape,
-      ),
-    }));
-    const shaped = pockets.flatMap((pocket) => pocket.places);
-    const cappedOut = new Set(
-      accepted
-        .filter(
-          (candidate) =>
-            !shaped.some(
-              (kept) => kept.providerPlaceId === candidate.providerPlaceId,
-            ),
-        )
-        .map((candidate) => candidate.providerPlaceId),
-    );
-    const curation = curator
-      ? await curate(curator, shaped, location, mood, policy)
-      : { curatedIds: [] };
-
-    for (const candidate of shaped) {
-      base.categories.set(
-        candidate.primaryCategory,
-        (base.categories.get(candidate.primaryCategory) ?? 0) + 1,
-      );
-    }
-
     return {
       ...base,
-      rawCount: raw.length,
-      uniqueCount: unique.length,
-      conservativeCount: shaped.length,
-      pockets: pockets.map((pocket) => ({
+      rawCount: result.retrievedCount,
+      uniqueCount: result.retrievedCount,
+      conservativeCount: result.candidateCount,
+      candidates: [
+        ...result.candidates,
+        ...result.rejected.map((entry) => entry.candidate),
+      ],
+      accepted: new Set(
+        result.candidates.map((place) => place.providerPlaceId),
+      ),
+      pockets: result.pockets.map((pocket) => ({
         span: pocket.spanMetres,
         categories: pocket.categories,
         names: pocket.places.map((place) => place.name),
       })),
-      candidates: unique,
-      accepted: new Set(shaped.map((place) => place.providerPlaceId)),
-      rejections: new Map([
-        ...rejected.map(
-          (rejection) =>
-            [rejection.candidate.providerPlaceId, rejection.reason] as const,
-        ),
-        ...[...cappedOut].map((id) => [id, "category_cap"] as const),
-      ]),
-      ...curation,
+      rejections: new Map(
+        result.rejected.map((entry) => [
+          entry.candidate.providerPlaceId,
+          entry.reason,
+        ]),
+      ),
+      curatedIds: result.places.map((place) => place.providerPlaceId),
     };
   } catch (error) {
     return {

@@ -11,6 +11,7 @@ import { log } from "@/lib/logger";
 import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import { GooglePlacesProvider } from "@/lib/providers/google";
+import { WikidataPlacesProvider } from "@/lib/providers/wikidata";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
     const result = await discoverNearbyPlaces({
       input: parsed.data,
       placesProvider: new GooglePlacesProvider(),
+      knowledgeProvider: new WikidataPlacesProvider(),
       aiCurator: createAiCurator(),
     });
 

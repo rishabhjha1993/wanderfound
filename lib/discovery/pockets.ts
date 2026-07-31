@@ -1,3 +1,4 @@
+import { attestationOf } from "@/lib/discovery/attestation";
 import { distanceMeters } from "@/lib/discovery/deduplicate";
 import type { GeoCoordinate, PlaceCandidate } from "@/lib/providers/domain";
 
@@ -58,7 +59,7 @@ export function findPockets(
   const groups = singleLinkGroups(candidates, policy.linkMetres);
   // Judged against the sweep rather than a fixed number, so a small town's
   // best places are not measured by a metropolis's review counts.
-  const anchorBar = anchorReviewBar(candidates);
+  const anchorBar = anchorBarFor(candidates);
   const pockets: Pocket[] = [];
 
   for (const group of groups) {
@@ -211,8 +212,8 @@ function toPocket(places: PlaceCandidate[]): Pocket {
 }
 
 /** A place notable enough to justify travelling to the pocket it sits in. */
-function isAnchor(place: PlaceCandidate, reviewBar: number) {
-  return place.landmarkSignal || (place.reviewCount ?? 0) >= reviewBar;
+function isAnchor(place: PlaceCandidate, bar: number) {
+  return place.landmarkSignal || attestationOf(place) >= bar;
 }
 
 /**
@@ -223,13 +224,13 @@ function isAnchor(place: PlaceCandidate, reviewBar: number) {
  * to call its anchor. A quartile keeps this relative — a small town is still
  * judged against itself — while actually meaning notable.
  */
-function anchorReviewBar(candidates: PlaceCandidate[]) {
+function anchorBarFor(candidates: PlaceCandidate[]) {
   if (candidates.length === 0) {
     return 0;
   }
 
   const counts = candidates
-    .map((candidate) => candidate.reviewCount ?? 0)
+    .map((candidate) => attestationOf(candidate))
     .sort((first, second) => first - second);
 
   return counts[Math.min(counts.length - 1, Math.floor(counts.length * 0.75))]!;

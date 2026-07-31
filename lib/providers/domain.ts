@@ -91,6 +91,15 @@ export const PlaceCandidateSchema = z
      */
     reviewCount: z.number().int().nonnegative().optional(),
     /**
+     * How many language editions of Wikipedia carry an article about this
+     * place. Absent for places no knowledge source recognises.
+     *
+     * This is the difference between a place that matters and a place that is
+     * merely nearby. A pickle store in a Dwarka flat has a Google review count
+     * and no article anywhere; Humayun's Tomb has sixty-nine.
+     */
+    sitelinkCount: z.number().int().nonnegative().optional(),
+    /**
      * The provider tagged this as a landmark, monument or heritage place
      * rather than merely as a building of that kind.
      *
@@ -120,7 +129,12 @@ export const PlaceCandidateSchema = z
 export const NearbyPlacesInputSchema = z
   .object({
     origin: GeoCoordinateSchema,
-    radiusMeters: z.number().int().min(100).max(10_000),
+    /**
+     * Up to metropolitan scale. A proximity search is capped far lower by its
+     * provider, but a knowledge source answers a whole region in one query,
+     * and Delhi NCR is roughly sixty kilometres across.
+     */
+    radiusMeters: z.number().int().min(100).max(60_000),
     maxResults: z.number().int().min(1).max(60),
     categories: z.array(PlaceCategorySchema).min(1).max(12),
     languageCode: z
