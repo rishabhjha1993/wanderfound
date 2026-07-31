@@ -1,3 +1,4 @@
+import { attestationOf } from "@/lib/discovery/attestation";
 import { distanceMeters } from "@/lib/discovery/deduplicate";
 import type { GeoCoordinate, PlaceCandidate } from "@/lib/providers/domain";
 
@@ -85,5 +86,5 @@ function comparatorFor(prefer: PoolShape["prefer"], origin: GeoCoordinate) {
 }
 
 function reviewsOf(candidate: PlaceCandidate) {
-  return candidate.reviewCount ?? 0;
+  return attestationOf(candidate);
 }

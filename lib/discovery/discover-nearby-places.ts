@@ -12,12 +12,14 @@ import {
   DeterministicPlaceCurator,
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
+import { findPockets } from "@/lib/discovery/pockets";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deriveSearchCentres } from "@/lib/discovery/search-centres";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { log } from "@/lib/logger";
 import type { PlacesProvider } from "@/lib/providers/contracts";
-import type { GeoCoordinate } from "@/lib/providers/domain";
+import type { GeoCoordinate, PlaceCategory } from "@/lib/providers/domain";
+import { WIKIDATA_CLASSES_BY_CATEGORY } from "@/lib/providers/wikidata";
 import { ProviderError } from "@/lib/providers/errors";
 
 export type DiscoverNearbyPlacesInput = {
@@ -32,10 +34,16 @@ export type DiscoverNearbyPlacesInput = {
 export async function discoverNearbyPlaces({
   input,
   placesProvider,
+  knowledgeProvider,
   aiCurator,
 }: {
   input: DiscoverNearbyPlacesInput;
   placesProvider: PlacesProvider;
+  /**
+   * Finds places worth travelling to across a whole region. Optional so tests
+   * and offline development can run on the proximity provider alone.
+   */
+  knowledgeProvider?: PlacesProvider;
   aiCurator?: PlaceCurator;
 }) {
   const policy = getDiscoveryPolicy(input.dayShape, input.mood);
@@ -49,16 +57,56 @@ export async function discoverNearbyPlaces({
     1,
     Math.floor(policy.candidateLimit / policy.searchGroups.length),
   );
-  // A day covers a city, and one Nearby Search answers a point. Sweeping
-  // several centres is the only way to see more than the twenty most prominent
-  // places around the player.
-  const centres = deriveSearchCentres(input.origin, policy.sweep);
   const candidates = [];
   const failures: unknown[] = [];
   let searchCount = 0;
+  let centreCount = 0;
 
-  for (const centre of centres) {
-    for (const categories of policy.searchGroups) {
+  for (const categories of policy.searchGroups) {
+    const knowledgeCategories = knowledgeProvider
+      ? categories.filter(isKnowledgeBacked)
+      : [];
+    // Two questions, two sources.
+    //
+    // "What here is worth a day" is answered by a knowledge source in one
+    // query across the whole region, because notability is a property of the
+    // place. "What food is near this point" can only be answered by a
+    // proximity search, because no encyclopaedia describes a good litti chokha
+    // stall — so that side still sweeps.
+    const proximityCategories = categories.filter(
+      (category) => !knowledgeCategories.includes(category),
+    );
+
+    if (knowledgeProvider && knowledgeCategories.length > 0) {
+      searchCount += 1;
+
+      try {
+        candidates.push(
+          ...(await knowledgeProvider.nearby({
+            origin: input.origin,
+            radiusMeters: policy.reachMeters,
+            maxResults: policy.candidateLimit,
+            categories: knowledgeCategories,
+            languageCode: input.languageCode,
+            ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+          })),
+        );
+      } catch (error) {
+        failures.push(error);
+        logSearchFailure(error, knowledgeProvider, knowledgeCategories, input);
+      }
+    }
+
+    if (proximityCategories.length === 0) {
+      continue;
+    }
+
+    // Only the proximity side needs a sweep, and only within reach of the
+    // player rather than across the region.
+    const centres = deriveSearchCentres(input.origin, policy.sweep);
+    centreCount = Math.max(centreCount, centres.length);
+
+    for (const centre of centres) {
       searchCount += 1;
 
       try {
@@ -67,7 +115,7 @@ export async function discoverNearbyPlaces({
             origin: centre,
             radiusMeters: policy.searchRadiusMeters,
             maxResults: perGroupLimit,
-            categories,
+            categories: proximityCategories,
             languageCode: input.languageCode,
             rankBy: policy.rankBy,
             ...(input.regionCode ? { regionCode: input.regionCode } : {}),
@@ -75,16 +123,7 @@ export async function discoverNearbyPlaces({
         );
       } catch (error) {
         failures.push(error);
-        log("error", "places_discovery_failed", {
-          provider:
-            error instanceof ProviderError
-              ? error.providerId
-              : placesProvider.descriptor.id,
-          code: error instanceof ProviderError ? error.code : "unknown",
-          retryable: error instanceof ProviderError ? error.retryable : false,
-          categories: categories.join(","),
-          location_cell: coarseLocationCell(input.origin),
-        });
+        logSearchFailure(error, placesProvider, proximityCategories, input);
       }
     }
   }
@@ -100,14 +139,22 @@ export async function discoverNearbyPlaces({
   // Filters run before curation so that no AI response can reinstate a
   // candidate the deterministic rules rejected.
   const { accepted, rejected } = filterCandidates(deduplicated);
-  // Capping each category's share is what stops the densest thing on the map
-  // becoming the whole adventure. The curator can only choose from what it is
-  // handed, so balance has to be decided before it sees anything.
-  const uniqueCandidates = shapeCandidatePool(
-    accepted,
-    input.origin,
-    policy.poolShape,
-  );
+
+  // Clustering runs before the category cap, and the order matters.
+  //
+  // Capping the whole city first kept only the most significant places, and
+  // significance concentrates in the centre: a seventy-four place sweep of
+  // Panjim collapsed to a single pocket because every outlying place had
+  // already been cut. Pockets are about where a day can be walked, so they are
+  // formed from everything that survived the safety filters.
+  const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
+    ...pocket,
+    // The cap then applies inside each pocket, which is what the player
+    // actually experiences. One category dominating a pocket is the problem;
+    // one category dominating a city is not something a player ever sees.
+    places: shapeCandidatePool(pocket.places, pocket.centre, policy.poolShape),
+  }));
+  const uniqueCandidates = pockets.flatMap((pocket) => pocket.places);
 
   if (rejected.length > 0) {
     log("info", "places_candidates_rejected", {
@@ -185,7 +232,12 @@ export async function discoverNearbyPlaces({
     // whether the unlock price works.
     search_count: searchCount,
     failed_search_count: failures.length,
-    centre_count: centres.length,
+    centre_count: centreCount,
+    pocket_count: pockets.length,
+    pocketed_place_count: pockets.reduce(
+      (total, pocket) => total + pocket.places.length,
+      0,
+    ),
     day_shape: input.dayShape,
     mood: input.mood,
     location_cell: coarseLocationCell(input.origin),
@@ -194,7 +246,7 @@ export async function discoverNearbyPlaces({
   return {
     searchRadiusMeters: policy.searchRadiusMeters,
     reachMeters: policy.reachMeters,
-    centreCount: centres.length,
+    centreCount,
     searchCount,
     failedSearchCount: failures.length,
     rankBy: policy.rankBy,
@@ -203,9 +255,34 @@ export async function discoverNearbyPlaces({
     selectionMethod,
     /** Everything that survived the filters, whether or not it was selected. */
     candidates: uniqueCandidates,
+    /** The walkable neighbourhoods a day can actually be built from. */
+    pockets,
     places,
     rejected,
   };
+}
+
+/** A mood category a knowledge source can answer for a whole region. */
+function isKnowledgeBacked(category: PlaceCategory) {
+  return WIKIDATA_CLASSES_BY_CATEGORY[category].length > 0;
+}
+
+function logSearchFailure(
+  error: unknown,
+  provider: PlacesProvider,
+  categories: PlaceCategory[],
+  input: DiscoverNearbyPlacesInput,
+) {
+  log("error", "places_discovery_failed", {
+    provider:
+      error instanceof ProviderError
+        ? error.providerId
+        : provider.descriptor.id,
+    code: error instanceof ProviderError ? error.code : "unknown",
+    retryable: error instanceof ProviderError ? error.retryable : false,
+    categories: categories.join(","),
+    location_cell: coarseLocationCell(input.origin),
+  });
 }
 
 function summariseReasons(rejections: CandidateRejection[]) {

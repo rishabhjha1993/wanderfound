@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
 import type { PlaceCurator } from "@/lib/discovery/place-curator";
+import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import type { PlacesProvider } from "@/lib/providers/contracts";
 import type { NearbyPlacesInput, PlaceCandidate } from "@/lib/providers/domain";
 import {
@@ -58,7 +59,23 @@ describe("discoverNearbyPlaces", () => {
 
     expect(first.selectionMethod).toBe("deterministic");
     expect(second.places).toEqual(first.places);
-    expect(first.places.length).toBeLessThanOrEqual(4);
+    expect(first.places.length).toBeLessThanOrEqual(
+      getDiscoveryPolicy(INPUT.dayShape, INPUT.mood).shortlistLimit,
+    );
+  });
+
+  it("groups the surviving places into walkable pockets", async () => {
+    const result = await discoverNearbyPlaces({
+      input: INPUT,
+      placesProvider: new MockPlacesProvider(),
+    });
+
+    expect(result.pockets.length).toBeGreaterThan(0);
+
+    for (const pocket of result.pockets) {
+      expect(pocket.places.length).toBeGreaterThanOrEqual(3);
+      expect(pocket.spanMetres).toBeLessThanOrEqual(1_200);
+    }
   });
 
   describe("balanced pools", () => {

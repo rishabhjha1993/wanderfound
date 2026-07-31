@@ -103,6 +103,37 @@ const FIXTURE_DEFINITIONS: Array<{
     visualSignal: "A square public lookout frame facing west",
     reviewCount: 2,
   },
+  // A pocket needs at least three places, so the historical categories carry
+  // enough fixtures to form one. Without these the mock world can be filtered
+  // and clustered into nothing, which tests the refusal path rather than the
+  // path every other test is about.
+  {
+    id: "fixture-museum",
+    name: "Fixture Tidewater Museum",
+    category: "museum",
+    latitude: 15.4995,
+    longitude: 73.8286,
+    visualSignal: "A blue-shuttered facade with a ship weathervane",
+    reviewCount: 640,
+  },
+  {
+    id: "fixture-chapel",
+    name: "Fixture Lantern Chapel",
+    category: "religious",
+    latitude: 15.4981,
+    longitude: 73.8276,
+    visualSignal: "A whitewashed bell gable above a carved door",
+    reviewCount: 310,
+  },
+  {
+    id: "fixture-arcade",
+    name: "Fixture Custom House Arcade",
+    category: "architecture",
+    latitude: 15.4987,
+    longitude: 73.8294,
+    visualSignal: "A row of nine arches with a painted date stone",
+    reviewCount: 128,
+  },
 ];
 
 export const MOCK_PLACE_CANDIDATES: PlaceCandidate[] = FIXTURE_DEFINITIONS.map(

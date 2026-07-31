@@ -37,7 +37,7 @@ describe("candidate hard filters", () => {
     const { rejected } = filterCandidates([acceptable({ reviewCount: 0 })]);
 
     expect(rejected).toHaveLength(1);
-    expect(rejected[0]!.detail).toContain("0 reviews");
+    expect(rejected[0]!.detail).toContain("corroboration");
   });
 
   describe("each rule independently", () => {

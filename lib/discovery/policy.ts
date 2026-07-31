@@ -2,6 +2,7 @@ import type {
   AdventureDayShape,
   AdventureMood,
 } from "@/lib/adventure/setup-session";
+import type { PocketPolicy } from "@/lib/discovery/pockets";
 import type { PoolShape } from "@/lib/discovery/pool-balance";
 import type { PlaceCategory } from "@/lib/providers/domain";
 
@@ -10,7 +11,9 @@ import type { PlaceCategory } from "@/lib/providers/domain";
  *
  * `reachMeters` is how far from the player the day may travel, not how far
  * anyone walks: walking happens inside pockets, and transport carries the
- * player between them. `searchRadiusMeters` stays small because a wide search
+ * player between them. It is answered by a knowledge source in one query.
+ * `sweepReachMeters` is the much smaller area the proximity sweep covers for
+ * the things no encyclopaedia lists, such as food. `searchRadiusMeters` stays small because a wide search
  * returns the same twenty prominent places spread thinner rather than more of
  * them, which is the whole reason the sweep exists.
  *
@@ -22,6 +25,7 @@ const DAY_POLICY: Record<
   AdventureDayShape,
   {
     reachMeters: number;
+    sweepReachMeters: number;
     searchRadiusMeters: number;
     rings: number;
     centresPerRing: number;
@@ -30,7 +34,11 @@ const DAY_POLICY: Record<
   }
 > = {
   half_day: {
-    reachMeters: 3_000,
+    // A day travels by auto or taxi between pockets, so reach is a city
+    // rather than a walk. Delhi NCR is roughly sixty kilometres across, and a
+    // three-kilometre reach from Dwarka could only ever offer Dwarka.
+    reachMeters: 20_000,
+    sweepReachMeters: 3_000,
     searchRadiusMeters: 1_200,
     rings: 1,
     centresPerRing: 6,
@@ -38,7 +46,8 @@ const DAY_POLICY: Record<
     shortlistLimit: 8,
   },
   full_day: {
-    reachMeters: 6_000,
+    reachMeters: 45_000,
+    sweepReachMeters: 6_000,
     searchRadiusMeters: 1_500,
     rings: 2,
     centresPerRing: 6,
@@ -161,6 +170,25 @@ const MAX_PER_CATEGORY: Record<AdventureDayShape, number> = {
   full_day: 10,
 };
 
+/**
+ * What makes a group of places a pocket.
+ *
+ * `linkMetres` is the step by which a pocket grows, not its width: places join
+ * the same pocket when each is a short walk from the next, which is how a
+ * neighbourhood actually feels. `maxSpanMetres` then stops that chaining from
+ * running the length of a city and calling it one walk.
+ *
+ * `minPlaces` is about worth rather than mechanics. Two places do not justify
+ * a journey across town, and offering them as a chapter is how a day becomes
+ * padding.
+ */
+const POCKET_POLICY: PocketPolicy = {
+  linkMetres: 350,
+  minPlaces: 3,
+  maxSpanMetres: 1_200,
+  minCategories: 2,
+};
+
 export function getDiscoveryPolicy(
   dayShape: AdventureDayShape,
   mood: AdventureMood,
@@ -173,7 +201,11 @@ export function getDiscoveryPolicy(
   return {
     ...day,
     sweep: {
-      reachMeters: day.reachMeters,
+      // The proximity sweep stays near the player. Spreading its centres
+      // across the whole region would search a handful of arbitrary points
+      // forty kilometres apart and find nothing coherent; the region is the
+      // knowledge source's job.
+      reachMeters: day.sweepReachMeters,
       searchRadiusMeters: day.searchRadiusMeters,
       rings: day.rings,
       centresPerRing: day.centresPerRing,
@@ -184,6 +216,7 @@ export function getDiscoveryPolicy(
       maxPerCategory: MAX_PER_CATEGORY[dayShape],
       prefer: MOOD_PREFERENCE[mood],
     } satisfies PoolShape,
+    pocket: POCKET_POLICY,
     preferObscure,
     /**
      * Ranking shapes which twenty places the curator gets to choose between.

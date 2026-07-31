@@ -1,3 +1,4 @@
+import { attestationOf, hasAttestation } from "@/lib/discovery/attestation";
 import { CANDIDATE_FILTER_THRESHOLDS } from "@/lib/discovery/policy";
 import type { PlaceCandidate } from "@/lib/providers/domain";
 
@@ -75,16 +76,19 @@ const RULES: CandidateRule[] = [
         : `Public access is "${candidate.publicAccess}" rather than established.`,
   },
   {
+    // Sources attest differently: a monument may have an encyclopaedia article
+    // and no reviews at all, and judging it by review count alone would reject
+    // Humayun's Tomb for being unverified.
     reason: "unverified_identity",
     check: (candidate) => {
       const { minCorroboratingReviews } = CANDIDATE_FILTER_THRESHOLDS;
 
-      if (candidate.reviewCount === undefined) {
-        return "No review count, so the provider's label is uncorroborated.";
+      if (!hasAttestation(candidate)) {
+        return "No source recognises this place, so its label is uncorroborated.";
       }
 
-      return candidate.reviewCount < minCorroboratingReviews
-        ? `Only ${candidate.reviewCount} reviews, below the ${minCorroboratingReviews} needed to trust the label.`
+      return attestationOf(candidate) < minCorroboratingReviews
+        ? `Too little corroboration to trust the label, below the ${minCorroboratingReviews} needed.`
         : null;
     },
   },
