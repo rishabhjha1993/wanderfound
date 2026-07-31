@@ -12,7 +12,7 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-208b — enrich knowledge anchors locally**
+- Latest completed ticket: **WF-208c — Sol-first semantic scouting**
 - Next ticket: **WF-203 — walking routes inside each pocket**
 
 Production is deployed and healthy, with live credentials. Google sign-in,
@@ -26,34 +26,44 @@ walkable **pockets** with ordinary transport between them: between pockets
 Wanderfound is a plan, inside a pocket it is the game. Players never walk
 between pockets.
 
-### Two sources, two questions
+### Taste first, facts second
 
-**"What here is worth a day?"** goes to Wikidata — one free query covering
-20–45 km, returning only places somebody wrote an encyclopaedia article about,
-ranked by how many languages did.
+The production discovery order is now deliberately simple:
 
-**"What completes the walk around this anchor?"** goes to Google. No
-encyclopaedia describes a good litti chokha stall, and Wikidata's best
-beautiful places can be too sparse to make a walk by themselves, so Google
-fills in the neighbourhood around the regional anchor—not around the player's
-residential starting point.
+1. **Sol scouts first.** It proposes specifically named places across a fixed
+   30 km metropolitan area. Beautiful must be visually exceptional; Strange
+   must have a concrete unusual quality or story. Generic fountains, apartment
+   amenities and ordinary buildings are explicitly disallowed.
+2. **Google verifies second.** Text Search confirms that every proposed name
+   exists inside the radius, replaces Sol's approximate coordinate with the
+   mapped point and adds current map metadata. Unmatched suggestions disappear.
+3. **Deterministic guardrails finish the list.** One locality contributes at
+   most two final places when the area has several neighbourhoods, and roughly
+   one-third of the shortlist is reserved for genuine lesser-known or hidden
+   places.
 
-This was the big correction. Asked from Dwarka, the old proximity-only search
-returned a pickle store in a flat, two home kitchens and an apartment-block
-shrine. It now returns Old Delhi around Kashmiri Gate and Nizamuddin around the
-Ghalib museum, twenty kilometres away, **for no Places spend at all**.
+This replaces the production Wikidata-first / Google-nearby pipeline. That
+pipeline correctly answered what databases considered nearby or notable, but
+it could not enforce taste: in Delhi it produced labels such as Jor Bagh
+Fountain and Glass House Jor Bagh. Sol now decides meaning; Google decides
+whether the named place is real.
+
+Live Dwarka checks on 31 July returned twelve Google-matched Beautiful places
+across Mehrauli, Nizamuddin, Old Delhi, Connaught Place, Gole Market, Jor Bagh,
+Kalkaji and Pandav Nagar. Strange returned the Museum of Toilets, Jantar
+Mantar, the Dolls Museum, Waste to Wonder, Bhuli Bhatiyari ka Mahal, Chor Minar,
+Metcalfe's Folly and other specific oddities across eleven localities.
 
 Real data has contradicted an assumption at almost every step; see the 30 and
 31 July decision-log entries.
 
 ### Two honest caveats
 
-**A place can still be unverified.** Selected places are now checked against
-Google for current opening status and exact position, but only where a
-confident match exists on both name and position. Google Places does not expose
-a general public-access field, so access must not be claimed as verified. From
-Dwarka six of eight matched; the rest keep an honest "unknown" rather than a
-guess.
+**Existence verification is not a full safety audit.** Google confirms the
+name, map point, destination type and current business status. Google Places
+does not expose a general public-access field, so only known-public destination
+types pass automatically. Pedestrian reachability and route hazards remain the
+next two tickets.
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -64,19 +74,18 @@ paid unlock must never trust client state.
 
 ## ELI5 system map
 
-| Piece                   | What it does                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                   |
-| TypeScript              | Spell-checking for code: catches many mistakes before users see them.            |
-| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.            |
-| Google Maps             | Draws the beautiful interactive map.                                             |
-| Wikidata                | The scout: finds what in this region is worth a day, and how widely it is known. |
-| Google Places API (New) | Fills in a walk around notable anchors, then checks hours and exact position.    |
-| GPT-5.6 Sol             | The creative director: chooses an interesting mix only from the verified list.   |
-| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                    |
-| Vercel                  | The theatre: hosts and serves the production app.                                |
-| GitHub                  | The shared source-code vault and change history.                                 |
-| GitHub Actions          | The independent robot proofreader that tests each proposed change.               |
+| Piece                   | What it does                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                    |
+| TypeScript              | Spell-checking for code: catches many mistakes before users see them.             |
+| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.             |
+| Google Maps             | Draws the beautiful interactive map.                                              |
+| GPT-5.6 Sol             | The taste scout: proposes places that strongly match the requested mood.          |
+| Google Places API (New) | The fact checker: proves each Sol proposal exists and supplies its exact map pin. |
+| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                     |
+| Vercel                  | The theatre: hosts and serves the production app.                                 |
+| GitHub                  | The shared source-code vault and change history.                                  |
+| GitHub Actions          | The independent robot proofreader that tests each proposed change.                |
 
 ## Completed
 
@@ -130,6 +139,16 @@ paid unlock must never trust client state.
 
 ### Worldwide place discovery
 
+- [x] Make GPT-5.6 Sol the first production scout over a 30 km radius.
+- [x] Give Beautiful and Strange explicit semantic failure rules.
+- [x] Verify every Sol proposal through Google Text Search and drop unmatched,
+      out-of-radius and parking/gate/entrance sub-records.
+- [x] Cap each locality at two final places and preserve a deliberate offbeat
+      share.
+- [x] Keep the former Wikidata/Google sweep behind provider boundaries for
+      deterministic fallback tests, but remove it from the configured
+      production path.
+
 - [x] Added the Wikidata regional provider and Google Places API (New) server
       provider.
 - [x] Search a 20 km region for half-day adventures.
@@ -141,9 +160,10 @@ paid unlock must never trust client state.
 - [x] Normalize all Google results into Wanderfound’s strict schema.
 - [x] Remove duplicate IDs, matching names, nearby name variants, and repeated
       branches.
-- [x] Send only candidate metadata—not player coordinates—to GPT-5.6 Sol.
-- [x] Force Sol to return structured IDs from Google’s allow-list.
-- [x] Add a deterministic curator when Sol is unavailable.
+- [x] Send the start coordinate, 30 km boundary and mood contract to Sol in a
+      server-only structured request.
+- [x] Require Google verification before any Sol-suggested destination reaches
+      the player.
 - [x] Add a visible “Discover what’s around me” result panel with Google
       attribution.
 - [x] Log failures using only a coarse location cell, never the key or precise
@@ -160,7 +180,7 @@ The worldwide discovery build passed:
 - formatting
 - linting
 - TypeScript
-- 161 unit tests
+- 167 unit tests
 - 18 component tests
 - 3 mobile browser smoke tests
 - production build
@@ -169,7 +189,7 @@ The worldwide discovery build passed:
 - production health check
 
 Latest merged pull request before this update:
-[PR #19 — Check whether selected places are open](https://github.com/rishabhjha1993/wanderfound/pull/19)
+[PR #20 — Search around the worthwhile neighbourhood](https://github.com/rishabhjha1993/wanderfound/pull/20)
 
 ## Build order from here
 
@@ -205,35 +225,40 @@ an assumption rather than because the plan read badly.
    produce six culinary pockets and six beautiful pockets with five provider
    searches rather than eight.
 
-8. **WF-203 — Walking routes and duration matrix**
+8. ~~**WF-208c — Sol-first semantic scouting**~~ — done. Sol defines
+   Beautiful/Strange quality before a map database can flood the pool; Google
+   independently verifies every suggestion; locality and offbeat guardrails
+   shape the final shortlist. Live Delhi Beautiful and Strange audits passed.
+
+9. **WF-203 — Walking routes and duration matrix**
    - Effort: High.
    - One pairwise duration matrix per pocket; full routes with geometry only for
      the selected sequence. Pockets keep the matrix small however far the day
      ranges.
 
-9. **WF-202b — Route-level safety filters**
-   - Effort: High.
-   - Motorway, unsafe crossing, hazard adjacency and unreachable destinations,
-     now that a real pedestrian route exists to judge them against.
-
-10. **WF-204 and WF-205 — Scoring and sequence search**
+10. **WF-202b — Route-level safety filters**
 
 - Effort: High.
-- Score variety, quality, accessibility and walking fit.
-- Greedy insertion plus 2-opt against the matrix; a playable sequence or an
-  honest “not enough here” response.
+- Motorway, unsafe crossing, hazard adjacency and unreachable destinations,
+  now that a real pedestrian route exists to judge them against.
 
-11. **WF-210 — Day assembly and transport legs**
+11. **WF-204 and WF-205 — Scoring and sequence search**
+    - Effort: High.
+    - Score variety, quality, accessibility and walking fit.
+    - Greedy insertion plus 2-opt against the matrix; a playable sequence or an
+      honest “not enough here” response.
+
+12. **WF-210 — Day assembly and transport legs**
     - Effort: High.
     - Order the pockets, estimate travel between them, and never draw a
       transport leg as a walking route.
 
-12. **WF-207 — Server-authoritative session record**
+13. **WF-207 — Server-authoritative session record**
     - Effort: High.
     - Persist the session and selection server-side; the client sees only the
       current stage. Makes the later paywall tamper-resistant by construction.
 
-13. **Milestone 3 — Grounded mystery writing**
+14. **Milestone 3 — Grounded mystery writing**
     - Effort: High.
     - Enrich approved places with sourced public facts.
     - Let Sol write the premise and clues using only approved material.

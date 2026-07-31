@@ -83,6 +83,10 @@ const RULES: CandidateRule[] = [
     check: (candidate) => {
       const { minCorroboratingReviews } = CANDIDATE_FILTER_THRESHOLDS;
 
+      if (candidate.identityVerified) {
+        return null;
+      }
+
       if (!hasAttestation(candidate)) {
         return "No source recognises this place, so its label is uncorroborated.";
       }

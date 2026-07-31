@@ -91,6 +91,12 @@ export const PlaceCandidateSchema = z
      */
     reviewCount: z.number().int().nonnegative().optional(),
     /**
+     * A second provider matched this exact named candidate inside the allowed
+     * geography. This is identity evidence even when Google omits reviews for
+     * a monument or public complex.
+     */
+    identityVerified: z.boolean().optional(),
+    /**
      * How many language editions of Wikipedia carry an article about this
      * place. Absent for places no knowledge source recognises.
      *

@@ -364,9 +364,10 @@ Recommended MVP defaults:
 - **Map:** Google Maps JavaScript API with cloud-based styling, custom overlays,
   Advanced Markers and WebGL Overlay View where justified.
 - **Walking routes:** Google Routes API.
-- **Which places are worth a day:** Wikidata, queried across the whole region.
-- **Food, and anything no encyclopaedia lists:** Google Places API (New).
-- **Current opening status and exact position:** Google Places API (New).
+- **Which places strongly fit the requested mood:** GPT-5.6 Sol, scouting a
+  30 km metropolitan radius before any place database shapes the list.
+- **Existence, exact position, current status and map identity:** Google Places
+  API (New), verifying every Sol proposal through Text Search.
   Public access is a separate safety judgement because Places exposes no
   general field proving that a player may approach a location.
 
@@ -381,17 +382,19 @@ were never in the response. Widening the radius returns the same prominent
 places spread thinner, and sweeping a region the size of Delhi with paid
 searches is unaffordable.
 
-So the question of _what here is worth a day_ goes to a knowledge source
-instead. One free Wikidata query covers forty kilometres and returns only
-places somebody wrote an encyclopaedia article about, ranked by how many
-language editions did. From Dwarka that is Humayun's Tomb, Jama Masjid, Purana
-Qila, Lodi Gardens and the Ghalib museum.
+So the production question of _what here is actually beautiful, strange,
+historical or culinary_ goes to Sol first. Its prompt defines each mood as a
+quality contract, requires several localities and a 25–40% offbeat share, and
+explicitly rejects generic map furniture, residences and merely low-review
+places. Sol may propose only specifically named, publicly approachable places.
 
-Google keeps the questions only it can answer. No encyclopaedia describes a
-good litti chokha stall, so culinary places stay proximity-sourced — but
-searched inside a pocket the knowledge source already found, never across
-residential blocks. Google also verifies current opening status and position
-for places that reach a trail.
+Google then keeps the narrower factual job: Text Search confirms each name
+inside 30 km, replaces the approximate coordinate, supplies current status and
+the map link, and drops anything unmatched. A deterministic final pass rejects
+parking/gate/entrance sub-records, caps one locality at two shortlisted places
+and preserves roughly one-third lesser-known or hidden places. Wikidata and the
+former Google Nearby sweep remain replaceable provider implementations and test
+fallbacks, but no longer define the production candidate pool.
 
 - **Additional public-space data:** OpenStreetMap through an approved hosted service or a compliant self-hosted extract—not an overloaded public Overpass instance in production.
 
@@ -563,24 +566,25 @@ feature in the surroundings.
 ### Generation sequence
 
 1. Capture start location, local time and user selections.
-2. Sweep several search centres across the day's reach.
-3. Apply hard safety and accessibility filters.
-4. Cluster survivors into candidate pockets and discard unpocketed places.
-5. Rank pockets and select those that fit the day, with transport between them.
-6. Enrich the strongest candidates in the chosen pockets with grounded facts.
-7. Request one pairwise walking-duration matrix **within each chosen pocket**.
-8. Search for the best stage sequence inside each pocket against its matrix.
-9. Request full walking routes with geometry for the selected sequences only.
-10. give the AI only the selected candidate objects and permitted facts.
-11. generate structured trail JSON.
-12. validate the JSON against schema and business rules.
-13. run a second deterministic check:
+2. Ask Sol for a structured, mood-specific place pool inside 30 km.
+3. Verify every proposed place with Google Text Search; discard non-matches.
+4. Apply identity, public-shape, status and deterministic diversity filters.
+5. Cluster survivors into candidate pockets and discard unpocketed places.
+6. Rank pockets and select those that fit the day, with transport between them.
+7. Enrich the strongest candidates in the chosen pockets with grounded facts.
+8. Request one pairwise walking-duration matrix **within each chosen pocket**.
+9. Search for the best stage sequence inside each pocket against its matrix.
+10. Request full walking routes with geometry for the selected sequences only.
+11. Give the trail writer only the verified candidate objects and permitted facts.
+12. Generate structured trail JSON.
+13. Validate the JSON against schema and business rules.
+14. Run a second deterministic check:
     - every stage references a real candidate ID;
     - every fact has a source;
     - no exact destination leaks into early clue text;
     - verification criteria are observable;
     - route time remains within the selected duration.
-14. persist the session and begin.
+15. Persist the session and begin.
 
 ### AI output schema
 
@@ -1044,6 +1048,7 @@ Acceptance:
 - [x] Sweep several search centres for what no knowledge source lists.
 - [x] Cluster candidates into walkable pockets.
 - [x] Verify selected places against a provider for hours and access.
+- [x] Scout with Sol first and verify every proposed destination through Google.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
@@ -1366,6 +1371,38 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-07-31 — Sol chooses meaning; Google proves existence
+
+The Wikidata-anchor improvement fixed Dwarka-specific emptiness but did not fix
+the underlying taste problem. A live Beautiful request still surfaced generic
+database labels such as Jor Bagh Fountain and Glass House Jor Bagh. The system
+was asking Sol to clean up a list whose semantic ceiling had already been set
+by place databases.
+
+The production order is now reversed:
+
+- Sol scouts specifically named places inside 30 km and must satisfy explicit
+  mood definitions. Beautiful rejects generic map furniture and ordinary
+  buildings; Strange requires a concrete unusual quality or story.
+- Google Text Search independently verifies every name, replaces approximate
+  coordinates and supplies the current map identity. Non-matches and
+  parking/gate/entrance sub-records are dropped.
+- A deterministic final pass caps a locality at two shortlisted places when
+  several localities exist and guarantees up to 35% lesser-known/hidden places
+  survive the final list.
+
+Live runs from Dwarka validated both semantics and grounding. Beautiful returned
+Qutub complex, Jahaz Mahal, Humayun's Tomb, Sunder Nursery, Jama Masjid,
+Agrasen ki Baoli, Bangla Sahib, Safdarjung's Tomb, Lotus Temple and Akshardham
+across the city. Strange returned the Museum of Toilets, Dolls Museum, Waste to
+Wonder, Bhuli Bhatiyari ka Mahal, Mutiny Memorial, Chor Minar, Metcalfe's Folly
+and other genuinely unusual, Google-matched places.
+
+Runtime effort is `low`, selected by measurement rather than assumption. Sol
+Medium and High exceeded the 60-second interaction budget; Low completed and
+preserved the desired quality. Web search was tested and removed because it
+also exceeded the budget. Development work remains GPT-5.6 Sol at High effort.
+
 ### 2026-07-31 — Enrich the anchor, not the starting point
 
 A production half-day search from Dwarka reproduced the founder's empty result
@@ -1620,11 +1657,12 @@ of provider quota, produced the following corrections.
   metadata. Deterministic mock providers use clearly fictional coordinate fixtures so
   discovery, routing and enrichment can be developed without paid calls or the risk
   of mock content appearing factual.
-- Nearby discovery uses Google Places API (New) as the factual scout and
-  `gpt-5.6-sol` at medium reasoning as an optional curator. Sol receives only
-  provider-approved IDs and descriptive metadata—not player coordinates—and its
-  structured output is intersected with Google's allow-list before use. A deterministic
-  curator remains available when the AI key or AI service is unavailable.
+- Production discovery uses `gpt-5.6-sol` at low reasoning as the first semantic
+  scout. Low was selected from live latency/quality checks: Medium and High
+  exceeded the 60-second interaction budget, while Low returned strong Delhi
+  Beautiful and Strange sets. Google Text Search then verifies every proposed
+  name and coordinate before use. Trail writing remains a separate grounded-AI
+  task and may use a higher reasoning setting.
 - Regional knowledge searches now reach 20 km for a half day and 45 km for a
   full day. Local Google enrichment stays within 1.2–1.5 km of a worthwhile
   anchor. Responses are capped at 20, time out after six seconds, and are
