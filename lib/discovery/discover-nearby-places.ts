@@ -13,11 +13,12 @@ import {
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
 import { findPockets } from "@/lib/discovery/pockets";
+import { verifySelectedPlaces } from "@/lib/discovery/verify-places";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deriveSearchCentres } from "@/lib/discovery/search-centres";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import { log } from "@/lib/logger";
-import type { PlacesProvider } from "@/lib/providers/contracts";
+import type { PlacesProvider, PlaceVerifier } from "@/lib/providers/contracts";
 import type { GeoCoordinate, PlaceCategory } from "@/lib/providers/domain";
 import { WIKIDATA_CLASSES_BY_CATEGORY } from "@/lib/providers/wikidata";
 import { ProviderError } from "@/lib/providers/errors";
@@ -35,6 +36,7 @@ export async function discoverNearbyPlaces({
   input,
   placesProvider,
   knowledgeProvider,
+  placeVerifier,
   aiCurator,
 }: {
   input: DiscoverNearbyPlacesInput;
@@ -44,6 +46,8 @@ export async function discoverNearbyPlaces({
    * and offline development can run on the proximity provider alone.
    */
   knowledgeProvider?: PlacesProvider;
+  /** Confirms hours, access and position for the places a trail selected. */
+  placeVerifier?: PlaceVerifier;
   aiCurator?: PlaceCurator;
 }) {
   const policy = getDiscoveryPolicy(input.dayShape, input.mood);
@@ -214,10 +218,19 @@ export async function discoverNearbyPlaces({
     uniqueCandidates.map((candidate) => [candidate.providerPlaceId, candidate]),
   );
 
-  const places = selectedIds.flatMap((placeId) => {
+  const selected = selectedIds.flatMap((placeId) => {
     const place = byId.get(placeId);
     return place ? [place] : [];
   });
+
+  // Verification runs last, on the shortlist only. A knowledge source knows
+  // what a place is and nothing about whether it is open today, and checking
+  // every candidate would cost a call each for places nobody visits.
+  const verification = await verifySelectedPlaces({
+    places: selected,
+    ...(placeVerifier ? { verifier: placeVerifier } : {}),
+  });
+  const places = verification.places;
 
   log("info", "places_discovery_completed", {
     selection_method: selectionMethod,
@@ -238,6 +251,9 @@ export async function discoverNearbyPlaces({
       (total, pocket) => total + pocket.places.length,
       0,
     ),
+    verified_count: verification.verifiedCount,
+    matched_count: verification.matchedCount,
+    verification_dropped_count: verification.dropped.length,
     day_shape: input.dayShape,
     mood: input.mood,
     location_cell: coarseLocationCell(input.origin),
@@ -258,6 +274,7 @@ export async function discoverNearbyPlaces({
     /** The walkable neighbourhoods a day can actually be built from. */
     pockets,
     places,
+    verification,
     rejected,
   };
 }

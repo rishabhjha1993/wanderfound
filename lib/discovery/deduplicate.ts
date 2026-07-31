@@ -21,7 +21,7 @@ export function deduplicatePlaceCandidates(
         (existing) =>
           distanceMeters(existing.coordinates, candidate.coordinates) <=
             NEAR_DUPLICATE_DISTANCE_METERS &&
-          tokenSimilarity(existing.name, candidate.name) >=
+          placeNameSimilarity(existing.name, candidate.name) >=
             NEAR_DUPLICATE_NAME_SIMILARITY,
       )
     ) {
@@ -65,7 +65,7 @@ function normalisePlaceName(name: string) {
     .trim();
 }
 
-function tokenSimilarity(first: string, second: string) {
+export function placeNameSimilarity(first: string, second: string) {
   const firstTokens = new Set(
     normalisePlaceName(first).split(" ").filter(Boolean),
   );

@@ -36,6 +36,7 @@ import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import type { PlaceCandidate } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import { GooglePlacesProvider } from "@/lib/providers/google";
+import { GooglePlaceVerifier } from "@/lib/providers/google/google-place-verifier";
 import { WikidataPlacesProvider } from "@/lib/providers/wikidata";
 
 type AuditLocation = {
@@ -202,6 +203,8 @@ type MoodResult = {
   commercial: number;
   candidates: PlaceCandidate[];
   accepted: Set<string>;
+  matchedCount: number;
+  selectedCount: number;
   pockets: Array<{ span: number; categories: string[]; names: string[] }>;
   rejections: Map<string, string>;
   curatedIds: string[];
@@ -319,6 +322,8 @@ async function auditOne(
     commercial: 0,
     candidates: [],
     accepted: new Set(),
+    matchedCount: 0,
+    selectedCount: 0,
     pockets: [],
     rejections: new Map(),
     curatedIds: [],
@@ -339,6 +344,7 @@ async function auditOne(
       },
       placesProvider: provider,
       knowledgeProvider,
+      placeVerifier: new GooglePlaceVerifier(),
       ...(curator ? { aiCurator: curator } : {}),
     });
 
@@ -366,8 +372,17 @@ async function auditOne(
       rawCount: result.retrievedCount,
       uniqueCount: result.retrievedCount,
       conservativeCount: result.candidateCount,
+      // Overlay the verified copies of the selected places, so the report
+      // shows the opening hours a player would actually be given rather than
+      // the unknowns the knowledge source started with.
       candidates: [
-        ...result.candidates,
+        ...result.candidates.map(
+          (candidate) =>
+            result.places.find(
+              (verified) =>
+                verified.providerPlaceId === candidate.providerPlaceId,
+            ) ?? candidate,
+        ),
         ...result.rejected.map((entry) => entry.candidate),
       ],
       accepted: new Set(
@@ -384,6 +399,8 @@ async function auditOne(
           entry.reason,
         ]),
       ),
+      matchedCount: result.verification.matchedCount,
+      selectedCount: result.verification.places.length,
       curatedIds: result.places.map((place) => place.providerPlaceId),
     };
   } catch (error) {
@@ -477,6 +494,7 @@ async function writeReport(results: LocationResult[]) {
         `- Raw ${result.rawCount}, unique ${result.uniqueCount}, conservative ${result.conservativeCount}`,
         `- Open now ${result.openNow}, unknown opening ${result.unknownOpening}, commercial ${result.commercial}`,
         `- Ranked by ${result.rankBy}`,
+        `- Verified ${result.matchedCount} of ${result.selectedCount} selected places`,
         `- Categories: ${categories || "none"}`,
         "",
       );
