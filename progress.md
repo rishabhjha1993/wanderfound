@@ -1,6 +1,6 @@
 # Wanderfound — Build Progress
 
-Last updated: 29 July 2026
+Last updated: 31 July 2026
 
 This is the quick, plain-language companion to [`plan.md`](./plan.md).
 `plan.md` remains the full product and engineering source of truth; this file
@@ -12,34 +12,42 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-206 — playability debug view**
-- Next ticket: **WF-203 — walking routes and duration matrix**
+- Latest completed ticket: **WF-208/209 — region-wide discovery and pockets**
+- Next ticket: **WF-208a — verify selected places for hours and access**
 
-Production is deployed and healthy. Google sign-in, foreground location,
-the custom map, adventure setup, provider contracts, and the worldwide
-Google Places + GPT-5.6 Sol discovery pipeline are built.
+Production is deployed and healthy, with live credentials. Google sign-in,
+foreground location, the custom map, adventure setup, provider contracts, and
+the discovery pipeline are built and running against real data.
 
-### Live discovery is active
+### The product plans a day, not an hour
 
-The two server-only credentials are configured in local development, so
-discovery now runs against real Google Places data and `gpt-5.6-sol`
-curation. **They are not yet in Vercel**, so production still returns 503.
+Setup now offers **half a day** or **a full day**. A day is two to four
+walkable **pockets** with ordinary transport between them: between pockets
+Wanderfound is a plan, inside a pocket it is the game. Players never walk
+between pockets.
 
-```bash
-GOOGLE_MAPS_SERVER_API_KEY=
-AI_API_KEY=
-AI_TEXT_MODEL=gpt-5.6-sol
-```
+### Two sources, two questions
 
-Never commit the real key values or prefix them with `NEXT_PUBLIC_`.
+**"What here is worth a day?"** goes to Wikidata — one free query covering
+20–45 km, returning only places somebody wrote an encyclopaedia article about,
+ranked by how many languages did.
 
-Real data immediately contradicted several assumptions; see the 30 July
-decision-log entry. The short version: two candidate fields were hardcoded to
-`"unknown"` and would have rejected every place on earth, government offices
-and casino boats were being offered as discoveries, and the "strange" mood
-returned Panjim's busiest restaurants. All corrected against observed output.
+**"What food is near this point?"** goes to Google, because no encyclopaedia
+describes a good litti chokha stall — and only inside a pocket Wikidata found.
 
-### One honest caveat
+This was the big correction. Asked from Dwarka, the old proximity-only search
+returned a pickle store in a flat, two home kitchens and an apartment-block
+shrine. It now returns Old Delhi around Kashmiri Gate and Nizamuddin around the
+Ghalib museum, twenty kilometres away, **for no Places spend at all**.
+
+Real data has contradicted an assumption at almost every step; see the 30 and
+31 July decision-log entries.
+
+### Two honest caveats
+
+**Opening hours are unknown for everything Wikidata returns.** Nothing yet
+checks whether a place is open, ticketed or reachable today. That is WF-208a,
+and it is the next ticket for a reason.
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -50,18 +58,19 @@ paid unlock must never trust client state.
 
 ## ELI5 system map
 
-| Piece                   | What it does                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------- |
-| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                      |
-| TypeScript              | Spell-checking for code: catches many mistakes before users see them.               |
-| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.               |
-| Google Maps             | Draws the beautiful interactive map.                                                |
-| Google Places API (New) | The factual scout: finds real places near the player.                               |
-| GPT-5.6 Sol             | The creative director: chooses an interesting mix only from Google’s verified list. |
-| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                       |
-| Vercel                  | The theatre: hosts and serves the production app.                                   |
-| GitHub                  | The shared source-code vault and change history.                                    |
-| GitHub Actions          | The independent robot proofreader that tests each proposed change.                  |
+| Piece                   | What it does                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                   |
+| TypeScript              | Spell-checking for code: catches many mistakes before users see them.            |
+| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.            |
+| Google Maps             | Draws the beautiful interactive map.                                             |
+| Wikidata                | The scout: finds what in this region is worth a day, and how widely it is known. |
+| Google Places API (New) | Finds food and shops near a pocket, and checks hours and access.                 |
+| GPT-5.6 Sol             | The creative director: chooses an interesting mix only from the verified list.   |
+| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                    |
+| Vercel                  | The theatre: hosts and serves the production app.                                |
+| GitHub                  | The shared source-code vault and change history.                                 |
+| GitHub Actions          | The independent robot proofreader that tests each proposed change.               |
 
 ## Completed
 
@@ -153,53 +162,70 @@ Latest pull request:
 
 ## Build order from here
 
-Block 3 was re-sequenced after reviewing the built code against the plan.
-The candidate pool is now audited before logic is built on top of it, the
-debug view arrives while it is still useful, and safety filters are split so
-that route-dependent rules are written only once real routes exist.
+Block 3 has been re-sequenced twice, both times because live data contradicted
+an assumption rather than because the plan read badly.
 
-1. ~~**WF-201a — Live activation and candidate audit**~~ — done, except adding
-   the two keys to Vercel, which is still outstanding.
+1. ~~**WF-201a — Live activation and candidate audit**~~ — done. Keys are in
+   local development and Vercel.
 
-2. ~~**WF-202a — Candidate-level hard filters**~~ — done. Seven named rules with
+2. ~~**WF-202a — Candidate-level hard filters**~~ — done. Six named rules with
    reason codes, running before the curator so no AI response can reinstate a
    rejected candidate.
 
 3. ~~**WF-206 — Playability debug view**~~ — done. Visit
    `/debug/playability` while signed in, locally or on a deployment with
    `WANDERFOUND_DEBUG_TOOLS=true`. There is a "use my location" button, so this
-   is the tool to open while standing in a Goan street.
+   is the tool to open while standing in a street.
 
-4. **WF-203 — Walking routes and duration matrix**
+4. ~~**WF-208 — Region-wide discovery**~~ — done. Wikidata finds what is worth a
+   day across 20–45 km; the Google sweep survives only for food.
+
+5. ~~**WF-209 — Pocket clustering**~~ — done. Places group into walkable
+   neighbourhoods, each needing two categories and one place worth the journey.
+
+6. **WF-208a — Verify selected places**
+   - Effort: Medium.
+   - Wikidata knows what a place is and nothing about whether it is open today.
+   - A handful of Google calls for the selected places only, never the region.
+
+7. **WF-203 — Walking routes and duration matrix**
    - Effort: High.
-   - One pairwise duration matrix over survivors; full routes with geometry
-     only for the selected sequence. Roughly two routing calls per adventure.
+   - One pairwise duration matrix per pocket; full routes with geometry only for
+     the selected sequence. Pockets keep the matrix small however far the day
+     ranges.
 
-5. **WF-202b — Route-level safety filters**
+8. **WF-202b — Route-level safety filters**
    - Effort: High.
    - Motorway, unsafe crossing, hazard adjacency and unreachable destinations,
      now that a real pedestrian route exists to judge them against.
 
-6. **WF-204 and WF-205 — Scoring and sequence search**
+9. **WF-204 and WF-205 — Scoring and sequence search**
    - Effort: High.
    - Score variety, quality, accessibility and walking fit.
    - Greedy insertion plus 2-opt against the matrix; a playable sequence or an
      honest “not enough here” response.
 
-7. **WF-207 — Server-authoritative session record**
-   - Effort: High.
-   - Persist the session and selection server-side; the client sees only the
-     current stage. Makes the later paywall tamper-resistant by construction.
+10. **WF-210 — Day assembly and transport legs**
+    - Effort: High.
+    - Order the pockets, estimate travel between them, and never draw a
+      transport leg as a walking route.
 
-8. **Milestone 3 — Grounded mystery writing**
-   - Effort: High.
-   - Enrich approved places with sourced public facts.
-   - Let Sol write the premise and clues using only approved material.
-   - Validate every stage before showing it to the player.
+11. **WF-207 — Server-authoritative session record**
+    - Effort: High.
+    - Persist the session and selection server-side; the client sees only the
+      current stage. Makes the later paywall tamper-resistant by construction.
+
+12. **Milestone 3 — Grounded mystery writing**
+    - Effort: High.
+    - Enrich approved places with sourced public facts.
+    - Let Sol write the premise and clues using only approved material.
+    - Validate every stage before showing it to the player.
 
 Also outstanding, before field testing with real testers:
 **WF-106 — account deletion, expired-auth recovery and session-lifecycle
-tests**, promoted out of WF-105 so it stops drifting.
+tests**, promoted out of WF-105 so it stops drifting. Party mode is collected at
+setup and does not yet filter anything, so family mode can still surface an
+alcohol-led venue.
 
 ## Explicitly not being built yet
 
