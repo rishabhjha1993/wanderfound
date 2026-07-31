@@ -354,7 +354,9 @@ type DiscoveryResponse = {
   reachMeters: number;
   centreCount: number;
   searchCount: number;
+  retrievedCount: number;
   candidateCount: number;
+  pocketCount: number;
   selectionMethod: "sol" | "deterministic";
   places: DiscoveredPlace[];
   attribution: string;
@@ -374,14 +376,18 @@ function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
           <h2>
             {result.places.length > 0
               ? `${result.places.length} promising story points`
-              : "This patch needs a wider search"}
+              : result.retrievedCount > 0
+                ? "The pieces didn’t form a strong walk"
+                : "The scout needs another pass"}
           </h2>
         </div>
-        <span>
-          {result.selectionMethod === "sol"
-            ? "Curated by Sol"
-            : "Smart fallback"}
-        </span>
+        {result.places.length > 0 ? (
+          <span>
+            {result.selectionMethod === "sol"
+              ? "Curated by Sol"
+              : "Smart fallback"}
+          </span>
+        ) : null}
       </div>
 
       {result.places.length > 0 ? (
@@ -406,13 +412,14 @@ function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
         </ol>
       ) : (
         <p className={styles.emptyDiscovery}>
-          Google returned no suitable candidates anywhere inside this first
-          radius. A later step will safely widen the circle once.
+          {result.retrievedCount > 0
+            ? `The scout found ${result.retrievedCount} real places, but they did not make a varied, walkable pocket yet. We will not pad the day with weak stops.`
+            : "The place providers returned nothing usable for this mood. Try another mood while the scout learns this area."}
         </p>
       )}
 
       <p className={styles.googleAttribution}>
-        Places supplied by {result.attribution} · searched within{" "}
+        Sources: {result.attribution} · searched within{" "}
         {(result.reachMeters / 1_000).toFixed(1)} km
       </p>
     </section>

@@ -29,7 +29,6 @@ import {
   type AdventureDayShape,
   type AdventureMood,
 } from "@/lib/adventure/setup-session";
-import { sweepCallCount } from "@/lib/discovery/search-centres";
 import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
@@ -205,6 +204,8 @@ type MoodResult = {
   accepted: Set<string>;
   matchedCount: number;
   selectedCount: number;
+  searchCount: number;
+  centreCount: number;
   pockets: Array<{ span: number; categories: string[]; names: string[] }>;
   rejections: Map<string, string>;
   curatedIds: string[];
@@ -247,22 +248,8 @@ async function main() {
   }
 
   const totalCalls = locations.length * moods.length;
-  const searchCalls = locations.reduce(
-    (total) =>
-      total +
-      moods.reduce(
-        (perLocation, mood) =>
-          perLocation +
-          sweepCallCount(
-            getDiscoveryPolicy(DAY_SHAPE, mood).sweep,
-            getDiscoveryPolicy(DAY_SHAPE, mood).searchGroups.length,
-          ),
-        0,
-      ),
-    0,
-  );
   console.info(
-    `Auditing ${totalCalls} mood searches (${searchCalls} Places calls): ${locations
+    `Auditing ${totalCalls} mood searches; provider calls are measured from the real pipeline: ${locations
       .map((location) => location.slug)
       .join(", ")} x ${moods.join(", ")}.`,
   );
@@ -324,6 +311,8 @@ async function auditOne(
     accepted: new Set(),
     matchedCount: 0,
     selectedCount: 0,
+    searchCount: 0,
+    centreCount: 0,
     pockets: [],
     rejections: new Map(),
     curatedIds: [],
@@ -401,6 +390,8 @@ async function auditOne(
       ),
       matchedCount: result.verification.matchedCount,
       selectedCount: result.verification.places.length,
+      searchCount: result.searchCount,
+      centreCount: result.centreCount,
       curatedIds: result.places.map((place) => place.providerPlaceId),
     };
   } catch (error) {
@@ -494,6 +485,7 @@ async function writeReport(results: LocationResult[]) {
         `- Raw ${result.rawCount}, unique ${result.uniqueCount}, conservative ${result.conservativeCount}`,
         `- Open now ${result.openNow}, unknown opening ${result.unknownOpening}, commercial ${result.commercial}`,
         `- Ranked by ${result.rankBy}`,
+        `- Provider searches ${result.searchCount} across ${result.centreCount} enrichment centres`,
         `- Verified ${result.matchedCount} of ${result.selectedCount} selected places`,
         `- Categories: ${categories || "none"}`,
         "",

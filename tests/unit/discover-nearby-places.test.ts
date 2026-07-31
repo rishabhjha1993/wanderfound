@@ -78,6 +78,64 @@ describe("discoverNearbyPlaces", () => {
     }
   });
 
+  it("searches for culinary detail around regional anchors rather than the player's suburb", async () => {
+    const anchorLatitude = INPUT.origin.latitude + 0.1;
+    const anchors = [
+      placeAt("anchor-one", "heritage", anchorLatitude, INPUT.origin.longitude),
+      placeAt(
+        "anchor-two",
+        "heritage",
+        anchorLatitude + 0.001,
+        INPUT.origin.longitude + 0.001,
+      ),
+      placeAt(
+        "anchor-three",
+        "heritage",
+        anchorLatitude - 0.001,
+        INPUT.origin.longitude - 0.001,
+      ),
+    ];
+    const knowledge = recordingProvider(async () => anchors);
+    const proximity = recordingProvider(async (request) => [
+      placeAt(
+        "food-one",
+        "culinary",
+        request.origin.latitude + 0.0003,
+        request.origin.longitude,
+      ),
+      placeAt(
+        "food-two",
+        "culinary",
+        request.origin.latitude,
+        request.origin.longitude + 0.0003,
+      ),
+      placeAt(
+        "food-three",
+        "culinary",
+        request.origin.latitude - 0.0003,
+        request.origin.longitude,
+      ),
+    ]);
+
+    const result = await discoverNearbyPlaces({
+      input: { ...INPUT, mood: "culinary" },
+      placesProvider: proximity.provider,
+      knowledgeProvider: knowledge.provider,
+    });
+
+    expect(proximity.requests).toHaveLength(1);
+    expect(proximity.requests[0]!.origin.latitude).toBeCloseTo(
+      anchorLatitude,
+      2,
+    );
+    expect(proximity.requests[0]!.origin).not.toEqual(INPUT.origin);
+    expect(proximity.requests[0]!.categories).toContain("culinary");
+    expect(result.pockets).toHaveLength(1);
+    expect(result.pockets[0]!.categories).toEqual(
+      expect.arrayContaining(["heritage", "culinary"]),
+    );
+  });
+
   describe("balanced pools", () => {
     it("searches each side of a two-sided mood separately", async () => {
       const { provider, requests } = recordingProvider();
@@ -259,4 +317,22 @@ function recordingProvider(
   };
 
   return { provider, requests };
+}
+
+function placeAt(
+  id: string,
+  category: PlaceCandidate["primaryCategory"],
+  latitude: number,
+  longitude: number,
+): PlaceCandidate {
+  return {
+    ...MOCK_PLACE_CANDIDATES[5]!,
+    providerPlaceId: id,
+    name: `Test place ${id}`,
+    primaryCategory: category,
+    categories: [category],
+    coordinates: { latitude, longitude },
+    commercialVenue: category === "culinary",
+    landmarkSignal: category === "heritage",
+  };
 }
