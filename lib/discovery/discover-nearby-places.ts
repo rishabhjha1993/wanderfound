@@ -18,9 +18,18 @@ import { verifySelectedPlaces } from "@/lib/discovery/verify-places";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deriveSearchCentres } from "@/lib/discovery/search-centres";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
+import {
+  SOL_SCOUT_RADIUS_METRES,
+  type PlaceScout,
+  type ScoutedPlaceVerifier,
+} from "@/lib/discovery/place-scout";
 import { log } from "@/lib/logger";
 import type { PlacesProvider, PlaceVerifier } from "@/lib/providers/contracts";
-import type { GeoCoordinate, PlaceCategory } from "@/lib/providers/domain";
+import type {
+  GeoCoordinate,
+  PlaceCandidate,
+  PlaceCategory,
+} from "@/lib/providers/domain";
 import { WIKIDATA_CLASSES_BY_CATEGORY } from "@/lib/providers/wikidata";
 import { ProviderError } from "@/lib/providers/errors";
 
@@ -39,6 +48,8 @@ export async function discoverNearbyPlaces({
   knowledgeProvider,
   placeVerifier,
   aiCurator,
+  placeScout,
+  scoutedPlaceVerifier,
 }: {
   input: DiscoverNearbyPlacesInput;
   placesProvider: PlacesProvider;
@@ -50,8 +61,21 @@ export async function discoverNearbyPlaces({
   /** Confirms hours, access and position for the places a trail selected. */
   placeVerifier?: PlaceVerifier;
   aiCurator?: PlaceCurator;
+  /** Sol proposes mood-perfect places before any map database shapes the list. */
+  placeScout?: PlaceScout;
+  /** Google proves each Sol proposal exists and supplies its exact map point. */
+  scoutedPlaceVerifier?: ScoutedPlaceVerifier;
 }) {
   const policy = getDiscoveryPolicy(input.dayShape, input.mood);
+
+  if (placeScout && scoutedPlaceVerifier) {
+    return discoverFromSolScout({
+      input,
+      policy,
+      placeScout,
+      scoutedPlaceVerifier,
+    });
+  }
 
   /**
    * A mood that spans two kinds of place searches each side separately, so
@@ -327,6 +351,196 @@ export async function discoverNearbyPlaces({
     verification,
     rejected,
   };
+}
+
+async function discoverFromSolScout({
+  input,
+  policy,
+  placeScout,
+  scoutedPlaceVerifier,
+}: {
+  input: DiscoverNearbyPlacesInput;
+  policy: ReturnType<typeof getDiscoveryPolicy>;
+  placeScout: PlaceScout;
+  scoutedPlaceVerifier: ScoutedPlaceVerifier;
+}) {
+  const scout = await placeScout.scout({
+    origin: input.origin,
+    radiusMeters: SOL_SCOUT_RADIUS_METRES,
+    mood: input.mood,
+    dayShape: input.dayShape,
+    partyMode: input.partyMode,
+    languageCode: input.languageCode,
+    ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+    targetCount: Math.min(policy.shortlistLimit + 4, 14),
+  });
+
+  // Verification is deliberately the second stage. Google never gets to
+  // decide what "beautiful" or "strange" means; it only confirms that each
+  // named Sol suggestion is real, current and inside the allowed city radius.
+  const outcomes = await Promise.allSettled(
+    scout.suggestions.map((suggestion) =>
+      scoutedPlaceVerifier.verify({
+        suggestion,
+        origin: input.origin,
+        radiusMeters: SOL_SCOUT_RADIUS_METRES,
+        languageCode: input.languageCode,
+        ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+      }),
+    ),
+  );
+  const failed = outcomes.filter(
+    (outcome): outcome is PromiseRejectedResult =>
+      outcome.status === "rejected",
+  );
+  const verified = deduplicatePlaceCandidates(
+    outcomes.flatMap((outcome) =>
+      outcome.status === "fulfilled" && outcome.value ? [outcome.value] : [],
+    ),
+  );
+
+  if (verified.length === 0 && failed.length === outcomes.length && failed[0]) {
+    throw failed[0].reason;
+  }
+
+  const { accepted, rejected } = filterCandidates(verified);
+  const places = selectAcrossLocalities(accepted, policy.shortlistLimit);
+  const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
+    ...pocket,
+    places: shapeCandidatePool(pocket.places, pocket.centre, policy.poolShape),
+  }));
+  const sourceNames = ["OpenAI GPT-5.6 Sol", "Google Maps"];
+  const matchedCount = verified.length;
+  const failedCount = failed.length;
+  const unmatchedCount = outcomes.length - matchedCount - failedCount;
+
+  log("info", "places_discovery_completed", {
+    selection_method: "sol_scout_google_verified",
+    ai_curator_configured: true,
+    retrieved_count: scout.suggestions.length,
+    candidate_count: accepted.length,
+    rejected_count: rejected.length,
+    selected_count: places.length,
+    search_radius_meters: SOL_SCOUT_RADIUS_METRES,
+    search_count: 1 + scout.suggestions.length,
+    failed_search_count: failedCount,
+    centre_count: distinctLocalityCount(accepted),
+    pocket_count: pockets.length,
+    pocketed_place_count: pockets.reduce(
+      (total, pocket) => total + pocket.places.length,
+      0,
+    ),
+    verified_count: outcomes.length - failedCount,
+    matched_count: matchedCount,
+    verification_dropped_count: rejected.length + unmatchedCount,
+    day_shape: input.dayShape,
+    mood: input.mood,
+    area_label: scout.areaLabel,
+    location_cell: coarseLocationCell(input.origin),
+  });
+
+  return {
+    searchRadiusMeters: SOL_SCOUT_RADIUS_METRES,
+    reachMeters: SOL_SCOUT_RADIUS_METRES,
+    centreCount: distinctLocalityCount(accepted),
+    searchCount: 1 + scout.suggestions.length,
+    failedSearchCount: failedCount,
+    rankBy: "semantic" as const,
+    retrievedCount: scout.suggestions.length,
+    sourceNames,
+    candidateCount: accepted.length,
+    selectionMethod: "sol" as const,
+    candidates: accepted,
+    pockets,
+    places,
+    verification: {
+      places,
+      dropped: [],
+      verifiedCount: outcomes.length - failedCount,
+      matchedCount,
+      failedCount,
+    },
+    rejected,
+  };
+}
+
+/**
+ * A semantic scout can still return its strongest places in one famous
+ * quarter first. This last deterministic cap keeps the shortlist city-wide
+ * without overruling Sol's ordering inside each locality.
+ */
+export function selectAcrossLocalities(
+  candidates: PlaceCandidate[],
+  limit: number,
+) {
+  const localityCount = distinctLocalityCount(candidates);
+  const maxPerLocality = localityCount >= 3 ? 2 : Math.max(2, limit);
+  const counts = new Map<string, number>();
+  const selected = new Set<string>();
+  const offbeatTarget = Math.min(
+    candidates.filter(isOffbeat).length,
+    Math.ceil(limit * 0.35),
+  );
+
+  function add(candidate: PlaceCandidate) {
+    const locality = localityOf(candidate);
+    const count = counts.get(locality) ?? 0;
+
+    if (selected.size >= limit || count >= maxPerLocality) {
+      return false;
+    }
+
+    selected.add(candidate.providerPlaceId);
+    counts.set(locality, count + 1);
+    return true;
+  }
+
+  let offbeatCount = 0;
+
+  for (const candidate of candidates) {
+    if (isOffbeat(candidate) && add(candidate)) {
+      offbeatCount += 1;
+
+      if (offbeatCount >= offbeatTarget) {
+        break;
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!selected.has(candidate.providerPlaceId)) {
+      add(candidate);
+    }
+  }
+
+  // The two passes enforce the mix; this final filter restores Sol's original
+  // quality order for the player-facing list.
+  return candidates.filter((candidate) =>
+    selected.has(candidate.providerPlaceId),
+  );
+}
+
+function distinctLocalityCount(candidates: PlaceCandidate[]) {
+  return new Set(candidates.map(localityOf)).size;
+}
+
+function localityOf(candidate: PlaceCandidate) {
+  return (
+    candidate.visualSignals
+      .find((signal) => signal.startsWith("locality:"))
+      ?.slice("locality:".length)
+      .trim()
+      .toLowerCase() ||
+    candidate.address?.toLowerCase() ||
+    "unknown"
+  );
+}
+
+function isOffbeat(candidate: PlaceCandidate) {
+  return candidate.visualSignals.some(
+    (signal) =>
+      signal === "obscurity:lesser_known" || signal === "obscurity:hidden_gem",
+  );
 }
 
 /** A mood category a knowledge source can answer for a whole region. */

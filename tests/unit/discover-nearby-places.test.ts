@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
 import type { PlaceCurator } from "@/lib/discovery/place-curator";
+import type {
+  PlaceScout,
+  ScoutedPlaceSuggestion,
+  ScoutedPlaceVerifier,
+} from "@/lib/discovery/place-scout";
 import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import type { PlacesProvider } from "@/lib/providers/contracts";
 import type { NearbyPlacesInput, PlaceCandidate } from "@/lib/providers/domain";
@@ -18,6 +23,68 @@ const INPUT = {
 };
 
 describe("discoverNearbyPlaces", () => {
+  it("uses Sol first, drops unverified suggestions, and prevents one locality taking the shortlist", async () => {
+    const suggestions = [
+      scouted("Jor One", "Jor Bagh", "iconic"),
+      scouted("Jor Two", "Jor Bagh", "iconic"),
+      scouted("Jor Three", "Jor Bagh", "iconic"),
+      scouted("Jor Four", "Jor Bagh", "iconic"),
+      scouted("Nizam One", "Nizamuddin", "iconic"),
+      scouted("Nizam Two", "Nizamuddin", "lesser_known"),
+      scouted("Mehrauli One", "Mehrauli", "hidden_gem"),
+      scouted("Made Up Palace", "Mehrauli"),
+    ];
+    const placeScout: PlaceScout = {
+      scout: vi.fn(async () => ({ areaLabel: "Delhi", suggestions })),
+    };
+    const scoutedPlaceVerifier: ScoutedPlaceVerifier = {
+      verify: vi.fn(async ({ suggestion }) =>
+        suggestion.name === "Made Up Palace"
+          ? null
+          : verifiedScoutCandidate(suggestion),
+      ),
+    };
+    const nearby = vi.fn(async () => {
+      throw new Error("The database-first path must not run.");
+    });
+    const placesProvider: PlacesProvider = {
+      descriptor: {
+        id: "unused",
+        kind: "places",
+        name: "Unused nearby provider",
+        status: "ready",
+      },
+      nearby,
+    };
+
+    const result = await discoverNearbyPlaces({
+      input: { ...INPUT, mood: "beautiful" },
+      placesProvider,
+      placeScout,
+      scoutedPlaceVerifier,
+    });
+
+    expect(nearby).not.toHaveBeenCalled();
+    expect(placeScout.scout).toHaveBeenCalledWith(
+      expect.objectContaining({ radiusMeters: 30_000, mood: "beautiful" }),
+    );
+    expect(scoutedPlaceVerifier.verify).toHaveBeenCalledTimes(8);
+    expect(result.selectionMethod).toBe("sol");
+    expect(result.sourceNames).toEqual(["OpenAI GPT-5.6 Sol", "Google Maps"]);
+    expect(result.candidates).toHaveLength(7);
+    expect(
+      result.places.filter((place) =>
+        place.visualSignals.includes("locality:Jor Bagh"),
+      ),
+    ).toHaveLength(2);
+    expect(result.places.some((place) => place.name === "Made Up Palace")).toBe(
+      false,
+    );
+    expect(result.places.map((place) => place.name)).toEqual(
+      expect.arrayContaining(["Nizam Two", "Mehrauli One"]),
+    );
+  });
+
   it("lets the AI choose only from provider-grounded candidates", async () => {
     const aiCurator: PlaceCurator = {
       curate: vi.fn(async () => [
@@ -334,5 +401,47 @@ function placeAt(
     coordinates: { latitude, longitude },
     commercialVenue: category === "culinary",
     landmarkSignal: category === "heritage",
+  };
+}
+
+function scouted(
+  name: string,
+  locality: string,
+  obscurity: ScoutedPlaceSuggestion["obscurity"] = "lesser_known",
+): ScoutedPlaceSuggestion {
+  return {
+    name,
+    locality,
+    approximateCoordinates: INPUT.origin,
+    primaryCategory: "garden",
+    categories: ["garden", "architecture"],
+    moodFitReason:
+      "A distinctive composition of landscape, old stone and mature trees.",
+    obscurity,
+    accessType: "public_space",
+    indoorOutdoor: "outdoor",
+    commercialVenue: false,
+  };
+}
+
+function verifiedScoutCandidate(
+  suggestion: ScoutedPlaceSuggestion,
+): PlaceCandidate {
+  return {
+    ...MOCK_PLACE_CANDIDATES[5]!,
+    provider: "google_places_new",
+    providerPlaceId: `google-${suggestion.name}`,
+    name: suggestion.name,
+    primaryCategory: suggestion.primaryCategory,
+    categories: suggestion.categories,
+    coordinates: suggestion.approximateCoordinates,
+    publicAccess: "yes",
+    reviewCount: 100,
+    landmarkSignal: false,
+    visualSignals: [
+      `mood-fit:${suggestion.moodFitReason}`,
+      `locality:${suggestion.locality}`,
+      `obscurity:${suggestion.obscurity}`,
+    ],
   };
 }

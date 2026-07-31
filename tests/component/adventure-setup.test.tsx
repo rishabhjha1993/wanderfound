@@ -137,7 +137,7 @@ describe("AdventureSetupComplete", () => {
     );
 
     expect(await screen.findByText("A Real Place")).toBeVisible();
-    expect(screen.getByText("Curated by Sol")).toBeVisible();
+    expect(screen.getByText("Found by Sol · verified by Google")).toBeVisible();
     expect(screen.getByText(/Sources: Google/)).toBeVisible();
     expect(fetcher).toHaveBeenCalledWith(
       "/api/places/discover",

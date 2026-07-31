@@ -7,16 +7,18 @@ import {
 } from "@/lib/adventure/setup-session";
 import { isDebugToolingEnabled } from "@/lib/discovery/debug-access";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
-import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
+import { OpenAIPlaceScout } from "@/lib/discovery/place-scout";
 import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
-import { GooglePlacesProvider } from "@/lib/providers/google";
-import { GooglePlaceVerifier } from "@/lib/providers/google/google-place-verifier";
-import { WikidataPlacesProvider } from "@/lib/providers/wikidata";
+import {
+  GooglePlacesProvider,
+  GoogleScoutVerifier,
+} from "@/lib/providers/google";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const debugRateLimiter = new FixedWindowRateLimiter({
   limit: 20,
@@ -80,10 +82,11 @@ export async function POST(request: Request) {
     const result = await discoverNearbyPlaces({
       input,
       placesProvider: new GooglePlacesProvider(),
-      knowledgeProvider: new WikidataPlacesProvider(),
-      placeVerifier: new GooglePlaceVerifier(),
       ...(useAiCurator && process.env.AI_API_KEY
-        ? { aiCurator: new OpenAIPlaceCurator() }
+        ? {
+            placeScout: new OpenAIPlaceScout(),
+            scoutedPlaceVerifier: new GoogleScoutVerifier(),
+          }
         : {}),
     });
     const selectedIds = new Set(

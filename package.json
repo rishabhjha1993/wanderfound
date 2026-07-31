@@ -15,6 +15,7 @@
     "test:component": "vitest run tests/component",
     "test:smoke": "playwright test",
     "audit:candidates": "tsx --env-file=.env.local scripts/audit-candidates.ts",
+    "audit:sol-scout": "tsx --env-file=.env.local scripts/audit-sol-scout.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

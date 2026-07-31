@@ -97,6 +97,12 @@ describe("candidate hard filters", () => {
       expect(reasonFor({ reviewCount: undefined })).toBe("unverified_identity");
     });
 
+    it("accepts an exact second-provider identity match without reviews", () => {
+      expect(
+        reasonFor({ reviewCount: undefined, identityVerified: true }),
+      ).toBeUndefined();
+    });
+
     it("accepts a place exactly at the corroboration threshold", () => {
       expect(
         reasonFor({

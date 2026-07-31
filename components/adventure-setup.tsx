@@ -280,9 +280,9 @@ export function AdventureSetupComplete({
       <p className={styles.eyebrow}>Compass set</p>
       <h1>Your kind of mystery is ready.</h1>
       <p className={styles.description}>
-        Wanderfound now knows the shape of the adventure. Next, we’ll ask Google
-        for real places across the city and safe walking routes inside each
-        pocket, then let the AI weave the clue trail.
+        Wanderfound now knows the shape of the adventure. Next, Sol scouts the
+        city for places that truly fit your mood, Google checks every one, and
+        the route engine keeps the walk practical.
       </p>
 
       <dl className={styles.summary}>
@@ -305,8 +305,8 @@ export function AdventureSetupComplete({
         <div>
           <strong>The next piece: the adventure engine</strong>
           <p>
-            Google scouts real nearby places. Sol then chooses a varied set
-            without being allowed to invent any new locations.
+            Sol proposes the meaningful places first. Google then proves each
+            one is real, current and inside the 30 km discovery area.
           </p>
         </div>
       </div>
@@ -384,7 +384,7 @@ function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
         {result.places.length > 0 ? (
           <span>
             {result.selectionMethod === "sol"
-              ? "Curated by Sol"
+              ? "Found by Sol · verified by Google"
               : "Smart fallback"}
           </span>
         ) : null}

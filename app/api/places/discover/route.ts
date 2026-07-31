@@ -6,17 +6,19 @@ import {
   ADVENTURE_PARTY_MODES,
 } from "@/lib/adventure/setup-session";
 import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
-import { OpenAIPlaceCurator } from "@/lib/discovery/place-curator";
+import { OpenAIPlaceScout } from "@/lib/discovery/place-scout";
 import { log } from "@/lib/logger";
 import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
-import { GooglePlacesProvider } from "@/lib/providers/google";
-import { GooglePlaceVerifier } from "@/lib/providers/google/google-place-verifier";
-import { WikidataPlacesProvider } from "@/lib/providers/wikidata";
+import {
+  GooglePlacesProvider,
+  GoogleScoutVerifier,
+} from "@/lib/providers/google";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * Every accepted request spends Google Places quota and may spend AI tokens.
@@ -93,9 +95,8 @@ export async function POST(request: Request) {
     const result = await discoverNearbyPlaces({
       input: parsed.data,
       placesProvider: new GooglePlacesProvider(),
-      knowledgeProvider: new WikidataPlacesProvider(),
-      placeVerifier: new GooglePlaceVerifier(),
-      aiCurator: createAiCurator(),
+      placeScout: createPlaceScout(),
+      scoutedPlaceVerifier: new GoogleScoutVerifier(),
     });
 
     return NextResponse.json({
@@ -141,10 +142,10 @@ export async function POST(request: Request) {
   }
 }
 
-function createAiCurator() {
+function createPlaceScout() {
   if (!process.env.AI_API_KEY) {
     return undefined;
   }
 
-  return new OpenAIPlaceCurator();
+  return new OpenAIPlaceScout();
 }
