@@ -364,8 +364,33 @@ Recommended MVP defaults:
 - **Map:** Google Maps JavaScript API with cloud-based styling, custom overlays,
   Advanced Markers and WebGL Overlay View where justified.
 - **Walking routes:** Google Routes API.
-- **Nearby POIs:** Google Places API (New).
-- **Historical enrichment:** Wikidata/Wikipedia where a confident entity match exists.
+- **Which places are worth a day:** Wikidata, queried across the whole region.
+- **Food, and anything no encyclopaedia lists:** Google Places API (New).
+- **Opening hours, access and exact position:** Google Places API (New).
+
+The first two are a deliberate division, and getting it wrong produced the worst
+output this product has yet shown a user.
+
+A proximity search answers _what is near this point_. Asked from residential
+Dwarka it honestly returned a pickle store in a flat, two home kitchens, an
+apartment-block shrine and a terrace called Artfluence. Nothing was broken: the
+question simply has no notion of worth, and no filter can recover places that
+were never in the response. Widening the radius returns the same prominent
+places spread thinner, and sweeping a region the size of Delhi with paid
+searches is unaffordable.
+
+So the question of _what here is worth a day_ goes to a knowledge source
+instead. One free Wikidata query covers forty kilometres and returns only
+places somebody wrote an encyclopaedia article about, ranked by how many
+language editions did. From Dwarka that is Humayun's Tomb, Jama Masjid, Purana
+Qila, Lodi Gardens and the Ghalib museum.
+
+Google keeps the questions only it can answer. No encyclopaedia describes a
+good litti chokha stall, so culinary places stay proximity-sourced — but
+searched inside a pocket the knowledge source already found, never across
+residential blocks. Google also verifies hours, access and position for places
+that reach a trail.
+
 - **Additional public-space data:** OpenStreetMap through an approved hosted service or a compliant self-hosted extract—not an overloaded public Overpass instance in production.
 
 Important: Google Routes results displayed on a map must be displayed on a Google Map,
@@ -1013,8 +1038,10 @@ Acceptance:
 - [x] Apply candidate-level hard filters.
 - [x] Build the playability debug view.
 - [x] Cap any one category's share of the pool.
-- [ ] Sweep several search centres across a city.
-- [ ] Cluster candidates into walkable pockets.
+- [x] Discover the region's notable places from a knowledge source.
+- [x] Sweep several search centres for what no knowledge source lists.
+- [x] Cluster candidates into walkable pockets.
+- [ ] Verify selected places against a provider for hours and access.
 - [ ] Implement the real Google `RoutingProvider`, including the duration matrix.
 - [ ] Apply route-level safety filters.
 - [x] Retrieve and normalise nearby candidates.
@@ -1336,6 +1363,53 @@ Do not claim the next level before the preceding behaviour exists.
 ---
 
 ## 20. Decision log
+
+### 2026-07-31 — Worth, not proximity
+
+Choosing a mood from Dwarka returned a pickle store in a flat, two home
+kitchens, an apartment-block shrine and a terrace called Artfluence. This is the
+correction, and it is the largest architectural change since the plan was
+written.
+
+- **A knowledge source decides what is worth a day; a proximity search decides
+  what is nearby.** Google Nearby Search answers "what is close to this point"
+  and has no notion of worth, so from a residential suburb it honestly returns
+  home businesses. No filter recovers places that were never in the response,
+  and no sweep fixes it either: a wider radius returns the same prominent places
+  spread thinner, and a region the size of Delhi cannot be covered by paid
+  searches at any acceptable cost.
+- **Notability is evidence, not popularity.** How many language editions of
+  Wikipedia describe a place separates Humayun's Tomb from a home bakery in a
+  way a review count never can, because a home bakery can gather hundreds of
+  reviews and has no article anywhere.
+- **Sources attest differently, so they are compared on one scale.** Judging a
+  monument by review count alone would have rejected Humayun's Tomb as
+  unverified. An `attestationOf` helper lets filters and pocket rules treat both
+  kinds of evidence without caring which source found the place.
+- **Google keeps what only it can answer.** No encyclopaedia describes a good
+  litti chokha stall, so culinary places stay proximity-sourced — but searched
+  inside a pocket the knowledge source found, never across residential blocks.
+  Google also verifies hours, access and position for places that reach a trail,
+  which Wikidata does not know.
+- **Day reach rises to twenty and forty-five kilometres**, since a day travels
+  by auto between pockets. The proximity sweep deliberately does not follow:
+  spread across a region it would search arbitrary points forty kilometres apart
+  and find nothing coherent.
+- **Cost fell rather than rose.** A historical day now costs no Places calls at
+  all where it previously cost fourteen, because one free query replaced the
+  sweep. That materially eases the ₹149 margin.
+- **The pocket link distance was measured, not chosen.** At 350 m almost every
+  Delhi monument stood alone; 750 m tripled the pockets found. Notable places
+  sit further apart than shopfronts do, and the value tuned for a Google pool
+  was wrong for a Wikidata one.
+- **The audit script now runs the product's own pipeline.** Two earlier versions
+  reimplemented the steps and drifted, reporting a pool the product would never
+  have produced, which hid a category cap and understated playable candidates by
+  half.
+
+Open and deliberately unresolved: Wikidata returns no opening hours, so every
+place currently reports its status as unknown until WF-208a verifies the
+selected ones.
 
 ### 2026-07-30 — A day of pockets
 
@@ -1935,25 +2009,49 @@ Done when:
 
 - the founder can diagnose a bad trail without reading server logs.
 
-#### WF-208 — City-wide candidate sweep
+#### WF-208 — Region-wide candidate discovery
 
 Depends on: WF-202a
 
-One Nearby Search describes a point, not a city, and a wider radius returns the
-same twenty prominent places spread thinner rather than more of them.
+Started as a multi-centre sweep of paid proximity searches. That was built, and
+it did return four times as many places — all of them still the wrong kind,
+because a proximity search cannot rank by worth however many times it is asked.
+The sweep survives only for food.
 
-- [ ] Derive several search centres from the player's position and the day's reach.
-- [ ] Derive them geometrically, never from a list of named districts.
-- [ ] Run the existing search groups at each centre and merge.
-- [ ] Deduplicate across centres, where overlap is expected and normal.
-- [ ] Cap total provider calls per generated day and record the count.
-- [ ] Measure and log the cost of one generated day.
+- [x] Derive several search centres from the player's position and the day's reach.
+- [x] Derive them geometrically, never from a list of named districts.
+- [x] Run the existing search groups at each centre and merge.
+- [x] Deduplicate across centres, where overlap is expected and normal.
+- [x] Measure and log the cost of one generated day.
+- [x] Query a knowledge source across the whole region for places worth a day.
+- [x] Rank those by how many language editions describe them.
+- [x] Keep the proximity sweep for categories no knowledge source lists.
+- [x] Compare sources on one attestation scale, so a monument with no reviews is
+      not mistaken for an unverified place.
 
 Done when:
 
-- a sweep around a real city returns materially more distinct places than one
-  search at its centre;
+- discovery from a residential suburb returns the region's landmarks rather than
+  its home businesses;
 - the cost of a generated day is a known number rather than an estimate.
+
+#### WF-208a — Verify knowledge places against a provider
+
+Depends on: WF-208, WF-209
+
+Wikidata knows what a place _is_, and nothing about whether it is open, ticketed
+or reachable today. Every place that reaches a trail needs that filled in.
+
+- [ ] Match selected places to a provider entry with a confidence threshold.
+- [ ] Fill opening hours, access and exact position from the match.
+- [ ] Leave the place unverified rather than guess when no confident match exists.
+- [ ] Keep verification to the selected places, not the whole region.
+- [ ] Record the provider spend per generated day.
+
+Done when:
+
+- a trail never sends a player to somewhere permanently closed;
+- verification costs a handful of calls, not one per candidate.
 
 #### WF-209 — Pocket clustering
 
@@ -1962,12 +2060,18 @@ Depends on: WF-208
 A pocket is found in the data, not declared. Anything list-based fails in the
 towns nobody thought to list.
 
-- [ ] Cluster surviving candidates by walking proximity.
-- [ ] Require a pocket to hold enough substance to justify travelling to it.
-- [ ] Discard candidates belonging to no pocket, however good they are.
-- [ ] Score pockets on substance, variety and coherence.
+- [x] Cluster surviving candidates by walking proximity.
+- [x] Require a pocket to hold enough substance to justify travelling to it.
+- [x] Discard candidates belonging to no pocket, however good they are.
+- [x] Score pockets on substance, variety and coherence.
 - [ ] Return an explanation of why each pocket formed, for the debug view.
-- [ ] Add fixtures for dense, sparse and single-cluster areas.
+- [x] Add fixtures for dense, sparse and single-cluster areas.
+
+The link distance was measured rather than chosen. At 350 m almost every Delhi
+monument stood alone, because notable places sit further apart than shopfronts
+do; 750 m tripled the pockets found in Delhi and doubled the places placed in
+Panjim, and beyond it the gains flatten while dense quarters fragment against
+the span cap.
 
 Done when:
 
@@ -2651,8 +2755,9 @@ route-dependent rules are written only once real routes exist.
 - Day 11: WF-201a — activation, rate limit and candidate audit.
 - Day 12: WF-202a — candidate-level filters.
 - Day 13: WF-206 — debug view.
-- Day 14: WF-208 — city-wide sweep.
+- Day 14: WF-208 — region-wide discovery.
 - Day 15–16: WF-209 — pocket clustering.
+- Day 16: WF-208a — verify selected places for hours and access.
 - Day 17: WF-203 — routes and duration matrix, per pocket.
 - Day 18: WF-202b — route-level safety filters.
 - Day 19: WF-204 — scoring.

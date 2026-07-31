@@ -183,7 +183,19 @@ const MAX_PER_CATEGORY: Record<AdventureDayShape, number> = {
  * padding.
  */
 const POCKET_POLICY: PocketPolicy = {
-  linkMetres: 350,
+  /*
+   * Measured rather than guessed. Across Delhi and Panjim:
+   *
+   *   link   Delhi pockets/places   Panjim pockets/places
+   *   350 m        1 / 3                  2 / 6
+   *   750 m        3 / 10                 2 / 13
+   *  1000 m        4 / 13                 2 / 12
+   *
+   * At 350 m almost every monument stood alone, because notable places are
+   * spread further apart than shopfronts are. Past 750 m the gains flatten and
+   * dense quarters start fragmenting against the span cap instead.
+   */
+  linkMetres: 750,
   minPlaces: 3,
   maxSpanMetres: 1_200,
   minCategories: 2,
