@@ -31,6 +31,7 @@ const DAY_POLICY: Record<
     centresPerRing: number;
     candidateLimit: number;
     shortlistLimit: number;
+    enrichmentCentreLimit: number;
   }
 > = {
   half_day: {
@@ -44,6 +45,7 @@ const DAY_POLICY: Record<
     centresPerRing: 6,
     candidateLimit: 20,
     shortlistLimit: 8,
+    enrichmentCentreLimit: 4,
   },
   full_day: {
     reachMeters: 45_000,
@@ -53,6 +55,7 @@ const DAY_POLICY: Record<
     centresPerRing: 6,
     candidateLimit: 20,
     shortlistLimit: 12,
+    enrichmentCentreLimit: 6,
   },
 };
 

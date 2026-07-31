@@ -92,8 +92,13 @@ describe("AdventureSetupComplete", () => {
     const user = userEvent.setup();
     const fetcher = vi.fn(async () =>
       Response.json({
-        radiusMeters: 800,
+        searchRadiusMeters: 1_200,
+        reachMeters: 20_000,
+        centreCount: 4,
+        searchCount: 5,
+        retrievedCount: 30,
         candidateCount: 8,
+        pocketCount: 2,
         selectionMethod: "sol",
         places: [
           {
@@ -133,10 +138,60 @@ describe("AdventureSetupComplete", () => {
 
     expect(await screen.findByText("A Real Place")).toBeVisible();
     expect(screen.getByText("Curated by Sol")).toBeVisible();
-    expect(screen.getByText(/Places supplied by Google/)).toBeVisible();
+    expect(screen.getByText(/Sources: Google/)).toBeVisible();
     expect(fetcher).toHaveBeenCalledWith(
       "/api/places/discover",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("explains when real places fail to form a walk instead of blaming Google", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          searchRadiusMeters: 1_200,
+          reachMeters: 20_000,
+          centreCount: 4,
+          searchCount: 5,
+          retrievedCount: 20,
+          candidateCount: 0,
+          pocketCount: 0,
+          selectionMethod: "deterministic",
+          places: [],
+          attribution: "Wikidata + Google Maps",
+        }),
+      ),
+    );
+
+    render(
+      <AdventureSetupComplete
+        location={{
+          latitude: 28.6139,
+          longitude: 77.209,
+          accuracyM: 20,
+          capturedAt: Date.now(),
+        }}
+        setup={{
+          dayShape: "half_day",
+          mood: "beautiful",
+          partyMode: "solo",
+        }}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Discover what’s around me" }),
+    );
+
+    expect(
+      await screen.findByText("The pieces didn’t form a strong walk"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/found 20 real places.*did not make/i),
+    ).toBeVisible();
+    expect(screen.queryByText("Smart fallback")).not.toBeInTheDocument();
   });
 });

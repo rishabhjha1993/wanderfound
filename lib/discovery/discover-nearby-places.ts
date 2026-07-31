@@ -8,6 +8,7 @@ import {
   type CandidateRejection,
 } from "@/lib/discovery/candidate-filters";
 import { deduplicatePlaceCandidates } from "@/lib/discovery/deduplicate";
+import { deriveEnrichmentCentres } from "@/lib/discovery/enrichment-centres";
 import {
   DeterministicPlaceCurator,
   type PlaceCurator,
@@ -61,11 +62,20 @@ export async function discoverNearbyPlaces({
     1,
     Math.floor(policy.candidateLimit / policy.searchGroups.length),
   );
-  const candidates = [];
+  const candidates: Awaited<ReturnType<PlacesProvider["nearby"]>> = [];
+  const knowledgeCandidates: Awaited<ReturnType<PlacesProvider["nearby"]>> = [];
+  const searchPlans: Array<{
+    categories: PlaceCategory[];
+    proximityCategories: PlaceCategory[];
+  }> = [];
   const failures: unknown[] = [];
   let searchCount = 0;
   let centreCount = 0;
 
+  // First ask the regional question for every side of the mood. The resulting
+  // anchors decide where paid proximity searches happen in the second pass.
+  // Doing both inside one loop used to search for food around the player even
+  // after Wikidata had identified worthwhile neighbourhoods across the city.
   for (const categories of policy.searchGroups) {
     const knowledgeCategories = knowledgeProvider
       ? categories.filter(isKnowledgeBacked)
@@ -80,34 +90,66 @@ export async function discoverNearbyPlaces({
     const proximityCategories = categories.filter(
       (category) => !knowledgeCategories.includes(category),
     );
+    searchPlans.push({ categories, proximityCategories });
 
     if (knowledgeProvider && knowledgeCategories.length > 0) {
       searchCount += 1;
 
       try {
-        candidates.push(
-          ...(await knowledgeProvider.nearby({
-            origin: input.origin,
-            radiusMeters: policy.reachMeters,
-            maxResults: policy.candidateLimit,
-            categories: knowledgeCategories,
-            languageCode: input.languageCode,
-            ...(input.regionCode ? { regionCode: input.regionCode } : {}),
-          })),
-        );
+        const found = await knowledgeProvider.nearby({
+          origin: input.origin,
+          radiusMeters: policy.reachMeters,
+          maxResults: policy.candidateLimit,
+          categories: knowledgeCategories,
+          languageCode: input.languageCode,
+          ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+        });
+        candidates.push(...found);
+        knowledgeCandidates.push(...found);
       } catch (error) {
         failures.push(error);
         logSearchFailure(error, knowledgeProvider, knowledgeCategories, input);
       }
     }
+  }
+
+  const uniqueKnowledgeCandidates =
+    deduplicatePlaceCandidates(knowledgeCandidates);
+  const acceptedKnowledgeCandidates = filterCandidates(
+    uniqueKnowledgeCandidates,
+  ).accepted;
+  const knowledgeAlreadyFormsPockets =
+    findPockets(acceptedKnowledgeCandidates, policy.pocket).length > 0;
+  const anchorCentres = deriveEnrichmentCentres(acceptedKnowledgeCandidates, {
+    pocket: policy.pocket,
+    limit: policy.enrichmentCentreLimit,
+    // Neighbouring searches overlap by design, but two centres closer than
+    // two radii mostly buy the same result list twice.
+    minSeparationMetres: policy.searchRadiusMeters * 2,
+  });
+
+  for (const plan of searchPlans) {
+    // A group with a category Wikidata cannot answer (most importantly food)
+    // always needs proximity enrichment. A fully knowledge-backed mood needs
+    // it only when the anchors do not yet form a walkable pocket by themselves.
+    const proximityCategories =
+      plan.proximityCategories.length > 0
+        ? plan.proximityCategories
+        : knowledgeProvider && !knowledgeAlreadyFormsPockets
+          ? plan.categories
+          : [];
 
     if (proximityCategories.length === 0) {
       continue;
     }
 
-    // Only the proximity side needs a sweep, and only within reach of the
-    // player rather than across the region.
-    const centres = deriveSearchCentres(input.origin, policy.sweep);
+    // Knowledge anchors are the correct centres. The geometric sweep around
+    // the player remains the fallback for offline tests, a provider outage, or
+    // a mood for which the knowledge source found nothing.
+    const centres =
+      anchorCentres.length > 0
+        ? anchorCentres
+        : deriveSearchCentres(input.origin, policy.sweep);
     centreCount = Math.max(centreCount, centres.length);
 
     for (const centre of centres) {
@@ -140,6 +182,13 @@ export async function discoverNearbyPlaces({
   }
 
   const deduplicated = deduplicatePlaceCandidates(candidates);
+  const sourceNames = [
+    ...new Set(
+      deduplicated.flatMap((candidate) =>
+        candidate.attributions.map((source) => source.displayName),
+      ),
+    ),
+  ];
   // Filters run before curation so that no AI response can reinstate a
   // candidate the deterministic rules rejected.
   const { accepted, rejected } = filterCandidates(deduplicated);
@@ -267,6 +316,7 @@ export async function discoverNearbyPlaces({
     failedSearchCount: failures.length,
     rankBy: policy.rankBy,
     retrievedCount: deduplicated.length,
+    sourceNames,
     candidateCount: uniqueCandidates.length,
     selectionMethod,
     /** Everything that survived the filters, whether or not it was selected. */

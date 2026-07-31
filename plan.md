@@ -366,7 +366,9 @@ Recommended MVP defaults:
 - **Walking routes:** Google Routes API.
 - **Which places are worth a day:** Wikidata, queried across the whole region.
 - **Food, and anything no encyclopaedia lists:** Google Places API (New).
-- **Opening hours, access and exact position:** Google Places API (New).
+- **Current opening status and exact position:** Google Places API (New).
+  Public access is a separate safety judgement because Places exposes no
+  general field proving that a player may approach a location.
 
 The first two are a deliberate division, and getting it wrong produced the worst
 output this product has yet shown a user.
@@ -388,8 +390,8 @@ Qila, Lodi Gardens and the Ghalib museum.
 Google keeps the questions only it can answer. No encyclopaedia describes a
 good litti chokha stall, so culinary places stay proximity-sourced — but
 searched inside a pocket the knowledge source already found, never across
-residential blocks. Google also verifies hours, access and position for places
-that reach a trail.
+residential blocks. Google also verifies current opening status and position
+for places that reach a trail.
 
 - **Additional public-space data:** OpenStreetMap through an approved hosted service or a compliant self-hosted extract—not an overloaded public Overpass instance in production.
 
@@ -826,7 +828,7 @@ Do not commit real values. Provide `.env.example`.
 - `status`
 - `start_lat`
 - `start_lng`
-- `duration_minutes`
+- `day_shape` (`half_day` or `full_day`)
 - `mood`
 - `party_type`
 - `trail_json`
@@ -1364,6 +1366,32 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-07-31 — Enrich the anchor, not the starting point
+
+A production half-day search from Dwarka reproduced the founder's empty result
+for both culinary and beautiful. Culinary retrieved 150 real places and
+beautiful retrieved 20; almost none were rejected. All of them disappeared
+later because they did not form a qualifying pocket.
+
+- **The providers were healthy; the question was misplaced.** Wikidata found
+  good regional anchors, but Google still searched for food around the player's
+  residential starting point. Those two pools could not form one walkable
+  neighbourhood.
+- **A knowledge anchor is now the centre of local enrichment.** A relaxed
+  one-category cluster, or a geographically distinct ranked anchor when the
+  result is sparse, tells Google where to find the smaller places that complete
+  the walk.
+- **Knowledge-backed moods enrich only when necessary.** If Wikidata already
+  forms a strong pocket, Google is not called. If a mood such as beautiful has
+  worthwhile but sparse anchors, Google densifies only those neighbourhoods.
+- **The refusal screen now tells the truth.** It distinguishes “providers found
+  nothing” from “real places did not form a strong walk” and no longer blames
+  Google or promises that a wider radius will fix a clustering failure.
+- **Live Dwarka acceptance changed from zero to six pockets for each reported
+  mood.** Culinary produced 38 pocketed candidates and beautiful produced 44.
+  Both used five provider searches rather than the former eight-search culinary
+  sweep.
+
 ### 2026-07-31 — Worth, not proximity
 
 Choosing a mood from Dwarka returned a pickle store in a flat, two home
@@ -1389,8 +1417,8 @@ written.
 - **Google keeps what only it can answer.** No encyclopaedia describes a good
   litti chokha stall, so culinary places stay proximity-sourced — but searched
   inside a pocket the knowledge source found, never across residential blocks.
-  Google also verifies hours, access and position for places that reach a trail,
-  which Wikidata does not know.
+  Google also verifies current opening status and position for places that
+  reach a trail. Neither source alone proves public approachability.
 - **Day reach rises to twenty and forty-five kilometres**, since a day travels
   by auto between pockets. The proximity sweep deliberately does not follow:
   spread across a region it would search arbitrary points forty kilometres apart
@@ -1526,8 +1554,8 @@ of provider quota, produced the following corrections.
 
 - Section 7's hard filters are split into candidate-level rules, derivable from a
   places response, and route-level rules, which require a real pedestrian route.
-  Google Places (New) returns types, business status, opening hours, accessibility
-  options and price level; it does not report cliffs, railways, construction or
+  Google Places (New) returns types, business status, opening hours and price
+  level; it does not generally prove public access or report cliffs, railways, construction or
   unsafe crossings. Implementing all filters in one pass before routing exists would
   produce rules that silently pass every candidate while appearing to enforce safety.
 - `RoutingProvider` gains `walkingMatrix`. Combination search calling `walkingRoute`
@@ -1597,9 +1625,10 @@ of provider quota, produced the following corrections.
   provider-approved IDs and descriptive metadata—not player coordinates—and its
   structured output is intersected with Google's allow-list before use. A deterministic
   curator remains available when the AI key or AI service is unavailable.
-- Initial search radii are 800 m for a 30-minute adventure and 1,500 m for a
-  60-minute adventure. Google responses are capped at 20, time out after six seconds,
-  and are deduplicated by provider identity, normalised name and nearby name similarity.
+- Regional knowledge searches now reach 20 km for a half day and 45 km for a
+  full day. Local Google enrichment stays within 1.2–1.5 km of a worthwhile
+  anchor. Responses are capped at 20, time out after six seconds, and are
+  deduplicated by provider identity, normalised name and nearby name similarity.
   Provider failures log only a coarse roughly 0.1-degree location cell.
 
 ### 2026-07-28
@@ -1843,7 +1872,7 @@ Done when:
 
 Depends on: WF-003
 
-- [x] Add 30- and 60-minute duration selection.
+- [x] Add half-day and full-day selection.
 - [x] Add historical, culinary, strange and beautiful moods.
 - [x] Add solo, couple/friends and family party modes.
 - [x] Provide one-sentence explanations rather than ambiguous icons.
@@ -2043,7 +2072,9 @@ Wikidata knows what a place _is_, and nothing about whether it is open, ticketed
 or reachable today. Every place that reaches a trail needs that filled in.
 
 - [x] Match selected places to a provider entry with a confidence threshold.
-- [x] Fill opening hours, access and exact position from the match.
+- [x] Fill current opening status and exact position from the match.
+- [ ] Establish public access from explicit evidence; Google Places exposes no
+      general access field, so category alone must not be described as proof.
 - [x] Leave the place unverified rather than guess when no confident match exists.
 - [x] Keep verification to the selected places, not the whole region.
 - [x] Record the provider spend per generated day.
@@ -2056,8 +2087,36 @@ hours where the knowledge source had none.
 
 Done when:
 
-- a trail never sends a player to somewhere permanently closed;
+- a matched place reported permanently closed never reaches the shortlist;
 - verification costs a handful of calls, not one per candidate.
+
+#### WF-208b — Enrich regional anchors locally
+
+Depends on: WF-208, WF-209
+
+A production-shaped search from Dwarka retrieved 150 culinary candidates and
+20 beautiful candidates, then returned zero. The providers had not failed:
+food was searched around the player's suburb while the knowledge anchors were
+across Delhi, and sparse beautiful anchors could not make three-stop pockets
+alone.
+
+- [x] Derive local enrichment centres from relaxed knowledge-anchor clusters.
+- [x] Fall back to distinct ranked anchors when the knowledge result is sparse.
+- [x] Search missing categories around those anchors rather than the player.
+- [x] Densify a fully knowledge-backed mood only when it does not already form
+      a qualifying pocket.
+- [x] Keep the geometric player-centred sweep as a provider-outage and
+      knowledge-empty fallback.
+- [x] Explain zero results as a pocket-formation failure when providers did
+      return real places.
+- [x] Re-run live Dwarka culinary and beautiful acceptance checks.
+
+Done when:
+
+- a residential starting point can produce pockets in the worthwhile parts of
+  its city;
+- local enrichment costs are measured and bounded;
+- the UI does not prescribe a wider radius for a clustering failure.
 
 #### WF-209 — Pocket clustering
 

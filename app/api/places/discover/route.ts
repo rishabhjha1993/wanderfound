@@ -103,7 +103,9 @@ export async function POST(request: Request) {
       reachMeters: result.reachMeters,
       centreCount: result.centreCount,
       searchCount: result.searchCount,
+      retrievedCount: result.retrievedCount,
       candidateCount: result.candidateCount,
+      pocketCount: result.pockets.length,
       selectionMethod: result.selectionMethod,
       places: result.places.map((place) => ({
         providerPlaceId: place.providerPlaceId,
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
           (attribution) => attribution.provider === "google_places",
         )?.sourceUrl,
       })),
-      attribution: "Google",
+      attribution: result.sourceNames.join(" + ") || "Wikidata + Google Maps",
     });
   } catch (error) {
     const status =

@@ -12,7 +12,7 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-208a — verify selected places**
+- Latest completed ticket: **WF-208b — enrich knowledge anchors locally**
 - Next ticket: **WF-203 — walking routes inside each pocket**
 
 Production is deployed and healthy, with live credentials. Google sign-in,
@@ -32,8 +32,11 @@ between pockets.
 20–45 km, returning only places somebody wrote an encyclopaedia article about,
 ranked by how many languages did.
 
-**"What food is near this point?"** goes to Google, because no encyclopaedia
-describes a good litti chokha stall — and only inside a pocket Wikidata found.
+**"What completes the walk around this anchor?"** goes to Google. No
+encyclopaedia describes a good litti chokha stall, and Wikidata's best
+beautiful places can be too sparse to make a walk by themselves, so Google
+fills in the neighbourhood around the regional anchor—not around the player's
+residential starting point.
 
 This was the big correction. Asked from Dwarka, the old proximity-only search
 returned a pickle store in a flat, two home kitchens and an apartment-block
@@ -46,9 +49,11 @@ Real data has contradicted an assumption at almost every step; see the 30 and
 ### Two honest caveats
 
 **A place can still be unverified.** Selected places are now checked against
-Google for hours, access and exact position, but only where a confident match
-exists on both name and position. From Dwarka six of eight matched; the rest
-keep an honest "unknown" rather than a guess.
+Google for current opening status and exact position, but only where a
+confident match exists on both name and position. Google Places does not expose
+a general public-access field, so access must not be claimed as verified. From
+Dwarka six of eight matched; the rest keep an honest "unknown" rather than a
+guess.
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -66,7 +71,7 @@ paid unlock must never trust client state.
 | Supabase                | The identity desk: verifies Google accounts and keeps login sessions.            |
 | Google Maps             | Draws the beautiful interactive map.                                             |
 | Wikidata                | The scout: finds what in this region is worth a day, and how widely it is known. |
-| Google Places API (New) | Finds food and shops near a pocket, and checks hours and access.                 |
+| Google Places API (New) | Fills in a walk around notable anchors, then checks hours and exact position.    |
 | GPT-5.6 Sol             | The creative director: chooses an interesting mix only from the verified list.   |
 | Zod                     | The bouncer: rejects malformed Google or AI data at the door.                    |
 | Vercel                  | The theatre: hosts and serves the production app.                                |
@@ -109,7 +114,7 @@ paid unlock must never trust client state.
 
 ### Adventure setup
 
-- [x] Added 30- and 60-minute choices.
+- [x] Added half-day and full-day choices.
 - [x] Added historical, culinary, strange, and beautiful moods.
 - [x] Added solo, couple/friends, and family modes.
 - [x] Validate and remember choices in the current browser session.
@@ -125,9 +130,12 @@ paid unlock must never trust client state.
 
 ### Worldwide place discovery
 
-- [x] Added the Google Places API (New) server provider.
-- [x] Search an 800 m radius for 30-minute adventures.
-- [x] Search a 1,500 m radius for 60-minute adventures.
+- [x] Added the Wikidata regional provider and Google Places API (New) server
+      provider.
+- [x] Search a 20 km region for half-day adventures.
+- [x] Search a 45 km region for full-day adventures.
+- [x] Use up to four or six notable knowledge anchors as local Google
+      enrichment centres.
 - [x] Map Wanderfound categories to current Google place types.
 - [x] Cap Google searches at 20 results and six seconds.
 - [x] Normalize all Google results into Wanderfound’s strict schema.
@@ -140,9 +148,10 @@ paid unlock must never trust client state.
       attribution.
 - [x] Log failures using only a coarse location cell, never the key or precise
       player position.
-- [ ] Add the two private production credentials and run the first real Delhi
-      and Goa acceptance searches (WF-201a).
-- [ ] Rate-limit the discovery route before it can spend real quota (WF-201a).
+- [x] Added the private production credentials and ran real Delhi and Goa
+      acceptance searches (WF-201a).
+- [x] Added a per-instance development rate limit to the discovery route.
+      A shared limiter remains necessary before paid/public launch.
 
 ## Latest verification
 
@@ -151,15 +160,16 @@ The worldwide discovery build passed:
 - formatting
 - linting
 - TypeScript
-- 43 unit tests
-- 11 component tests
+- 161 unit tests
+- 18 component tests
+- 3 mobile browser smoke tests
 - production build
 - browser smoke test in GitHub Actions
 - Vercel production deployment
 - production health check
 
-Latest pull request:
-[PR #12 — Add worldwide Google + Sol place discovery](https://github.com/rishabhjha1993/wanderfound/pull/12)
+Latest merged pull request before this update:
+[PR #19 — Check whether selected places are open](https://github.com/rishabhjha1993/wanderfound/pull/19)
 
 ## Build order from here
 
@@ -188,34 +198,42 @@ an assumption rather than because the plan read badly.
    for the shortlist only. A place that turns out to be permanently closed is
    dropped; a provider outage leaves it unverified rather than deleting it.
 
-7. **WF-203 — Walking routes and duration matrix**
+7. ~~**WF-208b — Enrich regional anchors locally**~~ — done. A live Dwarka
+   culinary run previously retrieved 150 places and produced zero pockets
+   because food was searched around the player's suburb. Google now searches
+   around Wikidata's worthwhile neighbourhood anchors. The same live checks
+   produce six culinary pockets and six beautiful pockets with five provider
+   searches rather than eight.
+
+8. **WF-203 — Walking routes and duration matrix**
    - Effort: High.
    - One pairwise duration matrix per pocket; full routes with geometry only for
      the selected sequence. Pockets keep the matrix small however far the day
      ranges.
 
-8. **WF-202b — Route-level safety filters**
+9. **WF-202b — Route-level safety filters**
    - Effort: High.
    - Motorway, unsafe crossing, hazard adjacency and unreachable destinations,
      now that a real pedestrian route exists to judge them against.
 
-9. **WF-204 and WF-205 — Scoring and sequence search**
-   - Effort: High.
-   - Score variety, quality, accessibility and walking fit.
-   - Greedy insertion plus 2-opt against the matrix; a playable sequence or an
-     honest “not enough here” response.
+10. **WF-204 and WF-205 — Scoring and sequence search**
 
-10. **WF-210 — Day assembly and transport legs**
+- Effort: High.
+- Score variety, quality, accessibility and walking fit.
+- Greedy insertion plus 2-opt against the matrix; a playable sequence or an
+  honest “not enough here” response.
+
+11. **WF-210 — Day assembly and transport legs**
     - Effort: High.
     - Order the pockets, estimate travel between them, and never draw a
       transport leg as a walking route.
 
-11. **WF-207 — Server-authoritative session record**
+12. **WF-207 — Server-authoritative session record**
     - Effort: High.
     - Persist the session and selection server-side; the client sees only the
       current stage. Makes the later paywall tamper-resistant by construction.
 
-12. **Milestone 3 — Grounded mystery writing**
+13. **Milestone 3 — Grounded mystery writing**
     - Effort: High.
     - Enrich approved places with sourced public facts.
     - Let Sol write the premise and clues using only approved material.
