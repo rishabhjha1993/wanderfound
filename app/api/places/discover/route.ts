@@ -12,6 +12,7 @@ import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import {
   GooglePlacesProvider,
+  GoogleRoutesProvider,
   GoogleScoutVerifier,
 } from "@/lib/providers/google";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit";
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
       placesProvider: new GooglePlacesProvider(),
       placeScout: createPlaceScout(),
       scoutedPlaceVerifier: new GoogleScoutVerifier(),
+      routingProvider: new GoogleRoutesProvider(),
     });
 
     return NextResponse.json({
@@ -107,6 +109,7 @@ export async function POST(request: Request) {
       retrievedCount: result.retrievedCount,
       candidateCount: result.candidateCount,
       pocketCount: result.pockets.length,
+      routing: result.routing,
       selectionMethod: result.selectionMethod,
       places: result.places.map((place) => ({
         providerPlaceId: place.providerPlaceId,

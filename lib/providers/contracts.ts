@@ -2,6 +2,8 @@ import type {
   GroundedPlaceFacts,
   NearbyPlacesInput,
   PlaceCandidate,
+  WalkingMatrix,
+  WalkingMatrixInput,
   WalkingRoute,
   WalkingRouteInput,
 } from "@/lib/providers/domain";
@@ -72,6 +74,7 @@ export interface RoutingProvider {
     id: string;
     kind: "routing";
   };
+  walkingMatrix(input: WalkingMatrixInput): Promise<WalkingMatrix>;
   walkingRoute(input: WalkingRouteInput): Promise<WalkingRoute>;
 }
 

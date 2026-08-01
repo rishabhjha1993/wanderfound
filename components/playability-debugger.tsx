@@ -39,6 +39,13 @@ type DebugResult = {
   selectionMethod: string;
   aiCuratorRequested: boolean;
   aiCuratorConfigured: boolean;
+  routing?: {
+    checked: boolean;
+    readyPocketCount: number;
+    rejectedPocketCount: number;
+    unavailablePocketCount: number;
+    matrixElementCount: number;
+  };
   candidates: CandidateRow[];
   rejected: CandidateRow[];
 };
@@ -227,6 +234,18 @@ export function PlayabilityDebugger() {
             <Stat label="Searches" value={String(result.searchCount)} />
             <Stat label="Ranked by" value={result.rankBy} />
             <Stat label="Chosen by" value={result.selectionMethod} />
+            {result.routing ? (
+              <>
+                <Stat
+                  label="Walkable pockets"
+                  value={result.routing.readyPocketCount}
+                />
+                <Stat
+                  label="Route pairs checked"
+                  value={result.routing.matrixElementCount}
+                />
+              </>
+            ) : null}
           </section>
 
           {result.aiCuratorRequested && result.selectionMethod !== "sol" ? (

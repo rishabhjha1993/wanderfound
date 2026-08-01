@@ -67,6 +67,31 @@ describe("deterministic mock providers", () => {
     expect(route.attributions[0].provider).toBe("wanderfound_mock");
   });
 
+  it("creates one complete pedestrian matrix for every supplied pair", async () => {
+    const provider = new MockRoutingProvider();
+    const matrix = await provider.walkingMatrix({
+      locations: [
+        ORIGIN,
+        { latitude: 15.5001, longitude: 73.8265 },
+        { latitude: 15.4978, longitude: 73.8269 },
+      ],
+      languageCode: "en",
+      regionCode: "IN",
+    });
+
+    expect(matrix.elements).toHaveLength(9);
+    expect(matrix.elements[0]).toMatchObject({
+      originIndex: 0,
+      destinationIndex: 0,
+      condition: "route_exists",
+      distanceMeters: 0,
+      durationSeconds: 0,
+    });
+    expect(matrix.elements[1]).toMatchObject({
+      condition: "route_exists",
+    });
+  });
+
   it("returns a typed no-route failure for unsupported fixture pairs", async () => {
     const provider = new MockRoutingProvider();
 

@@ -11,6 +11,7 @@ import type { PlacesProvider } from "@/lib/providers/contracts";
 import type { NearbyPlacesInput, PlaceCandidate } from "@/lib/providers/domain";
 import {
   MockPlacesProvider,
+  MockRoutingProvider,
   MOCK_PLACE_CANDIDATES,
 } from "@/lib/providers/mock";
 
@@ -143,6 +144,21 @@ describe("discoverNearbyPlaces", () => {
       expect(pocket.places.length).toBeGreaterThanOrEqual(3);
       expect(pocket.spanMetres).toBeLessThanOrEqual(1_200);
     }
+  });
+
+  it("checks each pocket against real walking pairs before selection", async () => {
+    const routingProvider = new MockRoutingProvider();
+    const walkingMatrix = vi.spyOn(routingProvider, "walkingMatrix");
+    const result = await discoverNearbyPlaces({
+      input: INPUT,
+      placesProvider: new MockPlacesProvider(),
+      routingProvider,
+    });
+
+    expect(walkingMatrix).toHaveBeenCalledTimes(result.pockets.length);
+    expect(result.routing.checked).toBe(true);
+    expect(result.routing.readyPocketCount).toBe(result.pockets.length);
+    expect(result.routing.matrixElementCount).toBeGreaterThan(0);
   });
 
   it("searches for culinary detail around regional anchors rather than the player's suburb", async () => {

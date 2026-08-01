@@ -1,6 +1,6 @@
 # Wanderfound — Build Progress
 
-Last updated: 31 July 2026
+Last updated: 1 August 2026
 
 This is the quick, plain-language companion to [`plan.md`](./plan.md).
 `plan.md` remains the full product and engineering source of truth; this file
@@ -12,12 +12,19 @@ answers “where are we right now?”
 - Production URL: **https://wanderfound.vercel.app**
 - Geographic scope: **worldwide**
 - Primary field-testing location: **Goa**
-- Latest completed ticket: **WF-208c — Sol-first semantic scouting**
-- Next ticket: **WF-203 — walking routes inside each pocket**
+- Latest implemented ticket: **WF-203 — walking routes inside each pocket**
+- Next action: **enable Routes API for the server credential, then run the live audit**
+- Next build ticket after activation: **WF-202b — route-level safety filters**
 
 Production is deployed and healthy, with live credentials. Google sign-in,
 foreground location, the custom map, adventure setup, provider contracts, and
 the discovery pipeline are built and running against real data.
+
+WF-203 is complete in code and tests. Its live Delhi audit reached Google on 1
+August but Google rejected the existing Places-only credential, so production
+cannot call Routes until the Routes API is enabled and permitted on a server
+key. Until then the app labels walking verification unavailable; it never
+substitutes a straight line or guessed duration.
 
 ### The product plans a day, not an hour
 
@@ -41,6 +48,11 @@ The production discovery order is now deliberately simple:
    most two final places when the area has several neighbourhoods, and roughly
    one-third of the shortlist is reserved for genuine lesser-known or hidden
    places.
+4. **Google checks the walk.** One small walking matrix per candidate pocket
+   proves that every stop can connect on foot. Disconnected pockets, absurd
+   detours, legs over 25 minutes and pockets over a 90-minute minimum walk are
+   rejected. Once the final order is chosen, one Routes request returns the
+   exact line and turn steps for the whole sequence.
 
 This replaces the production Wikidata-first / Google-nearby pipeline. That
 pipeline correctly answered what databases considered nearby or notable, but
@@ -59,11 +71,10 @@ Real data has contradicted an assumption at almost every step; see the 30 and
 
 ### Two honest caveats
 
-**Existence verification is not a full safety audit.** Google confirms the
-name, map point, destination type and current business status. Google Places
-does not expose a general public-access field, so only known-public destination
-types pass automatically. Pedestrian reachability and route hazards remain the
-next two tickets.
+**Walking reachability is not a full route safety audit.** The new route matrix
+can prove that a pedestrian path exists and fits the time budget. It does not
+yet reject motorway exposure, unsafe crossings or hazards beside the route;
+those rules are WF-202b.
 
 **The database has a schema but no writes.** All six tables and their
 row-level security policies exist in the Supabase migration, and no
@@ -74,18 +85,19 @@ paid unlock must never trust client state.
 
 ## ELI5 system map
 
-| Piece                   | What it does                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                    |
-| TypeScript              | Spell-checking for code: catches many mistakes before users see them.             |
-| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.             |
-| Google Maps             | Draws the beautiful interactive map.                                              |
-| GPT-5.6 Sol             | The taste scout: proposes places that strongly match the requested mood.          |
-| Google Places API (New) | The fact checker: proves each Sol proposal exists and supplies its exact map pin. |
-| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                     |
-| Vercel                  | The theatre: hosts and serves the production app.                                 |
-| GitHub                  | The shared source-code vault and change history.                                  |
-| GitHub Actions          | The independent robot proofreader that tests each proposed change.                |
+| Piece                   | What it does                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| Next.js                 | The app’s body: screens, buttons, and secure server endpoints.                       |
+| TypeScript              | Spell-checking for code: catches many mistakes before users see them.                |
+| Supabase                | The identity desk: verifies Google accounts and keeps login sessions.                |
+| Google Maps             | Draws the beautiful interactive map.                                                 |
+| GPT-5.6 Sol             | The taste scout: proposes places that strongly match the requested mood.             |
+| Google Places API (New) | The fact checker: proves each Sol proposal exists and supplies its exact map pin.    |
+| Google Routes API       | The path checker: proves pockets connect on foot and returns the exact walking line. |
+| Zod                     | The bouncer: rejects malformed Google or AI data at the door.                        |
+| Vercel                  | The theatre: hosts and serves the production app.                                    |
+| GitHub                  | The shared source-code vault and change history.                                     |
+| GitHub Actions          | The independent robot proofreader that tests each proposed change.                   |
 
 ## Completed
 
@@ -173,6 +185,20 @@ paid unlock must never trust client state.
 - [x] Added a per-instance development rate limit to the discovery route.
       A shared limiter remains necessary before paid/public launch.
 
+### Walking routes
+
+- [x] Added a strict walking-matrix contract and mock/Google providers.
+- [x] Check each pocket with one real pairwise pedestrian matrix.
+- [x] Reject disconnected pockets, excessive detours, legs over 25 minutes and
+      a minimum pocket walk over 90 minutes.
+- [x] Fetch one exact Google route, including geometry and turn steps, only for
+      the final ordered sequence.
+- [x] Never replace a failed pedestrian route with a straight line.
+- [x] Expose route-check counts and honest unavailable status to the app and
+      founder debugger.
+- [ ] Enable Routes API for a server credential locally and in Vercel, then
+      rerun `npm run audit:routes` and verify production.
+
 ## Latest verification
 
 The worldwide discovery build passed:
@@ -180,7 +206,7 @@ The worldwide discovery build passed:
 - formatting
 - linting
 - TypeScript
-- 167 unit tests
+- 178 unit tests
 - 18 component tests
 - 3 mobile browser smoke tests
 - production build
@@ -230,7 +256,9 @@ an assumption rather than because the plan read badly.
    independently verifies every suggestion; locality and offbeat guardrails
    shape the final shortlist. Live Delhi Beautiful and Strange audits passed.
 
-9. **WF-203 — Walking routes and duration matrix**
+9. ~~**WF-203 — Walking routes and duration matrix (code)**~~ — implemented;
+   live activation remains one Google Cloud permission.
+
    - Effort: High.
    - One pairwise duration matrix per pocket; full routes with geometry only for
      the selected sequence. Pockets keep the matrix small however far the day

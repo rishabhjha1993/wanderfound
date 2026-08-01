@@ -12,6 +12,7 @@ import { GeoCoordinateSchema } from "@/lib/providers/domain";
 import { ProviderError } from "@/lib/providers/errors";
 import {
   GooglePlacesProvider,
+  GoogleRoutesProvider,
   GoogleScoutVerifier,
 } from "@/lib/providers/google";
 import { FixedWindowRateLimiter } from "@/lib/rate-limit";
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
     const result = await discoverNearbyPlaces({
       input,
       placesProvider: new GooglePlacesProvider(),
+      routingProvider: new GoogleRoutesProvider(),
       ...(useAiCurator && process.env.AI_API_KEY
         ? {
             placeScout: new OpenAIPlaceScout(),
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
       rankBy: result.rankBy,
       retrievedCount: result.retrievedCount,
       candidateCount: result.candidateCount,
+      routing: result.routing,
       rejectedCount: result.rejected.length,
       selectionMethod: result.selectionMethod,
       aiCuratorRequested: useAiCurator,

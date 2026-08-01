@@ -358,6 +358,13 @@ type DiscoveryResponse = {
   candidateCount: number;
   pocketCount: number;
   selectionMethod: "sol" | "deterministic";
+  routing?: {
+    checked: boolean;
+    readyPocketCount: number;
+    rejectedPocketCount: number;
+    unavailablePocketCount: number;
+    matrixElementCount: number;
+  };
   places: DiscoveredPlace[];
   attribution: string;
 };
@@ -383,9 +390,13 @@ function DiscoveryResult({ result }: { result: DiscoveryResponse }) {
         </div>
         {result.places.length > 0 ? (
           <span>
-            {result.selectionMethod === "sol"
-              ? "Found by Sol · verified by Google"
-              : "Smart fallback"}
+            {result.routing?.readyPocketCount
+              ? "Places + walking verified by Google"
+              : result.routing?.unavailablePocketCount
+                ? "Places verified · walking check retrying"
+                : result.selectionMethod === "sol"
+                  ? "Found by Sol · verified by Google"
+                  : "Smart fallback"}
           </span>
         ) : null}
       </div>
