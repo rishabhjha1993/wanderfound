@@ -7,6 +7,8 @@ import {
   GroundedPlaceFactsSchema,
   NearbyPlacesInputSchema,
   PlaceCandidateSchema,
+  WalkingMatrixInputSchema,
+  WalkingMatrixSchema,
   WalkingRouteInputSchema,
   WalkingRouteSchema,
   type GeoCoordinate,
@@ -84,6 +86,72 @@ export class MockRoutingProvider implements RoutingProvider {
     status: "ready" as const,
   };
 
+  async walkingMatrix(input: unknown) {
+    const parsedInput = WalkingMatrixInputSchema.safeParse(input);
+
+    if (!parsedInput.success) {
+      throw new RoutingProviderError({
+        providerId: this.descriptor.id,
+        operation: "walking_matrix",
+        code: "invalid_request",
+        retryable: false,
+        message: "Mock routing received an invalid walking-matrix request.",
+        cause: parsedInput.error,
+      });
+    }
+
+    const elements = parsedInput.data.locations.flatMap((origin, originIndex) =>
+      parsedInput.data.locations.map((destination, destinationIndex) => {
+        const directDistance = distanceMeters(origin, destination);
+
+        if (originIndex === destinationIndex) {
+          return {
+            originIndex,
+            destinationIndex,
+            condition: "route_exists" as const,
+            distanceMeters: 0,
+            durationSeconds: 0,
+          };
+        }
+
+        if (directDistance > 5_000) {
+          return {
+            originIndex,
+            destinationIndex,
+            condition: "no_route" as const,
+          };
+        }
+
+        const routedDistance = Math.ceil(directDistance * MOCK_PATH_FACTOR);
+        return {
+          originIndex,
+          destinationIndex,
+          condition: "route_exists" as const,
+          distanceMeters: routedDistance,
+          durationSeconds: Math.ceil(
+            routedDistance / WALKING_METERS_PER_SECOND,
+          ),
+        };
+      }),
+    );
+
+    return parseProviderResponse(
+      WalkingMatrixSchema,
+      {
+        provider: MOCK_PROVIDER_ID,
+        locations: parsedInput.data.locations,
+        elements,
+        attributions: [MOCK_PROVIDER_ATTRIBUTION],
+        retrievedAt: MOCK_PROVIDER_ATTRIBUTION.retrievedAt,
+      },
+      {
+        providerId: this.descriptor.id,
+        providerKind: "routing",
+        operation: "walking_matrix",
+      },
+    );
+  }
+
   async walkingRoute(input: unknown) {
     const parsedInput = WalkingRouteInputSchema.safeParse(input);
 
@@ -98,12 +166,25 @@ export class MockRoutingProvider implements RoutingProvider {
       });
     }
 
-    const directDistance = distanceMeters(
+    const waypoints = [
       parsedInput.data.origin,
+      ...parsedInput.data.intermediateLocations,
       parsedInput.data.destination,
-    );
+    ];
+    const legs = waypoints.slice(0, -1).map((origin, index) => {
+      const destination = waypoints[index + 1]!;
+      return {
+        origin,
+        destination,
+        directDistance: distanceMeters(origin, destination),
+      };
+    });
 
-    if (directDistance < 1 || directDistance > 5_000) {
+    if (
+      legs.some(
+        ({ directDistance }) => directDistance < 1 || directDistance > 5_000,
+      )
+    ) {
       throw new RoutingProviderError({
         providerId: this.descriptor.id,
         operation: "walking_route",
@@ -113,47 +194,51 @@ export class MockRoutingProvider implements RoutingProvider {
       });
     }
 
-    const distance = Math.ceil(directDistance * MOCK_PATH_FACTOR);
-    const duration = Math.ceil(distance / WALKING_METERS_PER_SECOND);
-    const midpoint = {
-      latitude:
-        (parsedInput.data.origin.latitude +
-          parsedInput.data.destination.latitude) /
-        2,
-      longitude:
-        (parsedInput.data.origin.longitude +
-          parsedInput.data.destination.longitude) /
-        2,
-    };
-    const path = [
-      parsedInput.data.origin,
-      midpoint,
-      parsedInput.data.destination,
-    ];
+    const steps = legs.map(({ origin, destination, directDistance }) => {
+      const distanceMeters = Math.ceil(directDistance * MOCK_PATH_FACTOR);
+      const durationSeconds = Math.ceil(
+        distanceMeters / WALKING_METERS_PER_SECOND,
+      );
+      const path = [
+        origin,
+        {
+          latitude: (origin.latitude + destination.latitude) / 2,
+          longitude: (origin.longitude + destination.longitude) / 2,
+        },
+        destination,
+      ];
+      return {
+        instruction: "Follow the deterministic fixture pedestrian path.",
+        distanceMeters,
+        durationSeconds,
+        start: origin,
+        end: destination,
+        path,
+      };
+    });
+    const distance = steps.reduce(
+      (total, step) => total + step.distanceMeters,
+      0,
+    );
+    const duration = steps.reduce(
+      (total, step) => total + step.durationSeconds,
+      0,
+    );
+    const path = steps.flatMap((step, index) =>
+      index === 0 ? step.path : step.path.slice(1),
+    );
 
     return parseProviderResponse(
       WalkingRouteSchema,
       {
         provider: MOCK_PROVIDER_ID,
-        providerRouteId: [
-          coordinateKey(parsedInput.data.origin),
-          coordinateKey(parsedInput.data.destination),
-        ].join(":"),
+        providerRouteId: [...waypoints.map(coordinateKey)].join(":"),
         origin: parsedInput.data.origin,
         destination: parsedInput.data.destination,
         distanceMeters: distance,
         durationSeconds: duration,
         path,
-        steps: [
-          {
-            instruction: "Follow the deterministic fixture pedestrian path.",
-            distanceMeters: distance,
-            durationSeconds: duration,
-            start: parsedInput.data.origin,
-            end: parsedInput.data.destination,
-            path,
-          },
-        ],
+        steps,
         attributions: [MOCK_PROVIDER_ATTRIBUTION],
         retrievedAt: MOCK_PROVIDER_ATTRIBUTION.retrievedAt,
       },

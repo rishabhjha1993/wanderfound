@@ -171,6 +171,8 @@ export const WalkingRouteInputSchema = z
   .object({
     origin: GeoCoordinateSchema,
     destination: GeoCoordinateSchema,
+    /** Ordered clue stops between the first and final place. */
+    intermediateLocations: z.array(GeoCoordinateSchema).max(23).default([]),
     languageCode: z
       .string()
       .trim()
@@ -182,6 +184,74 @@ export const WalkingRouteInputSchema = z
       .optional(),
   })
   .strict();
+
+export const WalkingMatrixInputSchema = z
+  .object({
+    locations: z.array(GeoCoordinateSchema).min(2).max(25),
+    languageCode: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2}$/),
+    regionCode: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{2}$/)
+      .optional(),
+  })
+  .strict();
+
+export const WalkingMatrixElementSchema = z
+  .object({
+    originIndex: z.number().int().nonnegative(),
+    destinationIndex: z.number().int().nonnegative(),
+    condition: z.enum(["route_exists", "no_route", "indeterminate"]),
+    distanceMeters: z.number().int().nonnegative().optional(),
+    durationSeconds: z.number().int().nonnegative().optional(),
+  })
+  .strict()
+  .superRefine((element, context) => {
+    if (
+      element.condition === "route_exists" &&
+      (element.distanceMeters === undefined ||
+        element.durationSeconds === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "A reachable matrix element needs distance and duration.",
+      });
+    }
+  });
+
+export const WalkingMatrixSchema = z
+  .object({
+    provider: NonEmptyStringSchema.max(80),
+    locations: z.array(GeoCoordinateSchema).min(2).max(25),
+    elements: z.array(WalkingMatrixElementSchema).min(4).max(625),
+    attributions: z.array(ProviderAttributionSchema).min(1).max(12),
+    retrievedAt: IsoDateTimeSchema,
+  })
+  .strict()
+  .superRefine((matrix, context) => {
+    const size = matrix.locations.length;
+    if (matrix.elements.length !== size * size) {
+      context.addIssue({
+        code: "custom",
+        message: "A walking matrix must contain every origin/destination pair.",
+        path: ["elements"],
+      });
+    }
+
+    for (const element of matrix.elements) {
+      if (element.originIndex >= size || element.destinationIndex >= size) {
+        context.addIssue({
+          code: "custom",
+          message: "Matrix indexes must point at supplied locations.",
+          path: ["elements"],
+        });
+        break;
+      }
+    }
+  });
 
 export const WalkingRouteStepSchema = z
   .object({
@@ -244,7 +314,10 @@ export type PlaceCandidate = z.infer<typeof PlaceCandidateSchema>;
  * provider implementations read the parsed output, where they are present.
  */
 export type NearbyPlacesInput = z.input<typeof NearbyPlacesInputSchema>;
-export type WalkingRouteInput = z.infer<typeof WalkingRouteInputSchema>;
+export type WalkingRouteInput = z.input<typeof WalkingRouteInputSchema>;
+export type WalkingMatrixInput = z.infer<typeof WalkingMatrixInputSchema>;
+export type WalkingMatrixElement = z.infer<typeof WalkingMatrixElementSchema>;
+export type WalkingMatrix = z.infer<typeof WalkingMatrixSchema>;
 export type WalkingRouteStep = z.infer<typeof WalkingRouteStepSchema>;
 export type WalkingRoute = z.infer<typeof WalkingRouteSchema>;
 export type GroundedPlaceFacts = z.infer<typeof GroundedPlaceFactsSchema>;

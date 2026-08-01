@@ -14,6 +14,7 @@ import {
   type PlaceCurator,
 } from "@/lib/discovery/place-curator";
 import { findPockets } from "@/lib/discovery/pockets";
+import { routePockets, type RoutedPocket } from "@/lib/discovery/route-pockets";
 import { verifySelectedPlaces } from "@/lib/discovery/verify-places";
 import { shapeCandidatePool } from "@/lib/discovery/pool-balance";
 import { deriveSearchCentres } from "@/lib/discovery/search-centres";
@@ -24,7 +25,11 @@ import {
   type ScoutedPlaceVerifier,
 } from "@/lib/discovery/place-scout";
 import { log } from "@/lib/logger";
-import type { PlacesProvider, PlaceVerifier } from "@/lib/providers/contracts";
+import type {
+  PlacesProvider,
+  PlaceVerifier,
+  RoutingProvider,
+} from "@/lib/providers/contracts";
 import type {
   GeoCoordinate,
   PlaceCandidate,
@@ -50,6 +55,7 @@ export async function discoverNearbyPlaces({
   aiCurator,
   placeScout,
   scoutedPlaceVerifier,
+  routingProvider,
 }: {
   input: DiscoverNearbyPlacesInput;
   placesProvider: PlacesProvider;
@@ -65,6 +71,8 @@ export async function discoverNearbyPlaces({
   placeScout?: PlaceScout;
   /** Google proves each Sol proposal exists and supplies its exact map point. */
   scoutedPlaceVerifier?: ScoutedPlaceVerifier;
+  /** Proves clustered map pins are connected by real pedestrian routes. */
+  routingProvider?: RoutingProvider;
 }) {
   const policy = getDiscoveryPolicy(input.dayShape, input.mood);
 
@@ -74,6 +82,7 @@ export async function discoverNearbyPlaces({
       policy,
       placeScout,
       scoutedPlaceVerifier,
+      routingProvider,
     });
   }
 
@@ -224,13 +233,30 @@ export async function discoverNearbyPlaces({
   // Panjim collapsed to a single pocket because every outlying place had
   // already been cut. Pockets are about where a day can be walked, so they are
   // formed from everything that survived the safety filters.
-  const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
-    ...pocket,
-    // The cap then applies inside each pocket, which is what the player
-    // actually experiences. One category dominating a pocket is the problem;
-    // one category dominating a city is not something a player ever sees.
-    places: shapeCandidatePool(pocket.places, pocket.centre, policy.poolShape),
-  }));
+  const clusteredPockets = findPockets(accepted, policy.pocket).map(
+    (pocket) => ({
+      ...pocket,
+      // The cap then applies inside each pocket, which is what the player
+      // actually experiences. One category dominating a pocket is the problem;
+      // one category dominating a city is not something a player ever sees.
+      places: shapeCandidatePool(
+        pocket.places,
+        pocket.centre,
+        policy.poolShape,
+      ),
+    }),
+  );
+  const routedPockets = routingProvider
+    ? await routePockets({
+        pockets: clusteredPockets,
+        routingProvider,
+        languageCode: input.languageCode,
+        ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+      })
+    : undefined;
+  const pockets = routedPockets
+    ? usableRoutedPockets(routedPockets)
+    : clusteredPockets;
   const uniqueCandidates = pockets.flatMap((pocket) => pocket.places);
 
   if (rejected.length > 0) {
@@ -320,6 +346,14 @@ export async function discoverNearbyPlaces({
     failed_search_count: failures.length,
     centre_count: centreCount,
     pocket_count: pockets.length,
+    routing_ready_pocket_count: countRoutingStatus(routedPockets, "ready"),
+    routing_rejected_pocket_count:
+      countRoutingStatus(routedPockets, "unrouteable") +
+      countRoutingStatus(routedPockets, "excessive"),
+    routing_unavailable_pocket_count: countRoutingStatus(
+      routedPockets,
+      "unavailable",
+    ),
     pocketed_place_count: pockets.reduce(
       (total, pocket) => total + pocket.places.length,
       0,
@@ -347,6 +381,7 @@ export async function discoverNearbyPlaces({
     candidates: uniqueCandidates,
     /** The walkable neighbourhoods a day can actually be built from. */
     pockets,
+    routing: summariseRouting(routedPockets),
     places,
     verification,
     rejected,
@@ -358,11 +393,13 @@ async function discoverFromSolScout({
   policy,
   placeScout,
   scoutedPlaceVerifier,
+  routingProvider,
 }: {
   input: DiscoverNearbyPlacesInput;
   policy: ReturnType<typeof getDiscoveryPolicy>;
   placeScout: PlaceScout;
   scoutedPlaceVerifier: ScoutedPlaceVerifier;
+  routingProvider?: RoutingProvider;
 }) {
   const scout = await placeScout.scout({
     origin: input.origin,
@@ -404,11 +441,39 @@ async function discoverFromSolScout({
   }
 
   const { accepted, rejected } = filterCandidates(verified);
-  const places = selectAcrossLocalities(accepted, policy.shortlistLimit);
-  const pockets = findPockets(accepted, policy.pocket).map((pocket) => ({
-    ...pocket,
-    places: shapeCandidatePool(pocket.places, pocket.centre, policy.poolShape),
-  }));
+  const clusteredPockets = findPockets(accepted, policy.pocket).map(
+    (pocket) => ({
+      ...pocket,
+      places: shapeCandidatePool(
+        pocket.places,
+        pocket.centre,
+        policy.poolShape,
+      ),
+    }),
+  );
+  const routedPockets = routingProvider
+    ? await routePockets({
+        pockets: clusteredPockets,
+        routingProvider,
+        languageCode: input.languageCode,
+        ...(input.regionCode ? { regionCode: input.regionCode } : {}),
+      })
+    : undefined;
+  const pockets = routedPockets
+    ? usableRoutedPockets(routedPockets)
+    : clusteredPockets;
+  const routedIds = new Set(
+    pockets.flatMap((pocket) =>
+      pocket.places.map((place) => place.providerPlaceId),
+    ),
+  );
+  const routeEligibleCandidates = routingProvider
+    ? accepted.filter((candidate) => routedIds.has(candidate.providerPlaceId))
+    : accepted;
+  const places = selectAcrossLocalities(
+    routeEligibleCandidates,
+    policy.shortlistLimit,
+  );
   const sourceNames = ["OpenAI GPT-5.6 Sol", "Google Maps"];
   const matchedCount = verified.length;
   const failedCount = failed.length;
@@ -426,6 +491,14 @@ async function discoverFromSolScout({
     failed_search_count: failedCount,
     centre_count: distinctLocalityCount(accepted),
     pocket_count: pockets.length,
+    routing_ready_pocket_count: countRoutingStatus(routedPockets, "ready"),
+    routing_rejected_pocket_count:
+      countRoutingStatus(routedPockets, "unrouteable") +
+      countRoutingStatus(routedPockets, "excessive"),
+    routing_unavailable_pocket_count: countRoutingStatus(
+      routedPockets,
+      "unavailable",
+    ),
     pocketed_place_count: pockets.reduce(
       (total, pocket) => total + pocket.places.length,
       0,
@@ -448,10 +521,11 @@ async function discoverFromSolScout({
     rankBy: "semantic" as const,
     retrievedCount: scout.suggestions.length,
     sourceNames,
-    candidateCount: accepted.length,
+    candidateCount: routeEligibleCandidates.length,
     selectionMethod: "sol" as const,
-    candidates: accepted,
+    candidates: routeEligibleCandidates,
     pockets,
+    routing: summariseRouting(routedPockets),
     places,
     verification: {
       places,
@@ -461,6 +535,46 @@ async function discoverFromSolScout({
       failedCount,
     },
     rejected,
+  };
+}
+
+/**
+ * When Google answered, only routeable pockets may reach the player. When the
+ * provider itself failed for every pocket we preserve the verified candidates
+ * but label them unavailable, allowing the UI to retry without lying.
+ */
+function usableRoutedPockets(pockets: RoutedPocket[]) {
+  const ready = pockets.filter((pocket) => pocket.routing.status === "ready");
+  if (ready.length > 0) return ready;
+  if (pockets.every((pocket) => pocket.routing.status === "unavailable")) {
+    return pockets;
+  }
+  return [];
+}
+
+function countRoutingStatus(
+  pockets: RoutedPocket[] | undefined,
+  status: RoutedPocket["routing"]["status"],
+) {
+  return (
+    pockets?.filter((pocket) => pocket.routing.status === status).length ?? 0
+  );
+}
+
+function summariseRouting(pockets: RoutedPocket[] | undefined) {
+  return {
+    checked: Boolean(pockets),
+    readyPocketCount: countRoutingStatus(pockets, "ready"),
+    rejectedPocketCount:
+      countRoutingStatus(pockets, "unrouteable") +
+      countRoutingStatus(pockets, "excessive"),
+    unavailablePocketCount: countRoutingStatus(pockets, "unavailable"),
+    matrixElementCount:
+      pockets?.reduce(
+        (total, pocket) =>
+          total + (pocket.routing.matrix?.elements.length ?? 0),
+        0,
+      ) ?? 0,
   };
 }
 

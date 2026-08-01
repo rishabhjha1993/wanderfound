@@ -2203,15 +2203,22 @@ Done when:
 
 Depends on: WF-200, WF-202a
 
-- [ ] Add `walkingMatrix` to the routing contract and both mock and Google providers.
-- [ ] Request one pairwise duration matrix over surviving candidates.
-- [ ] Request full walking routes with geometry for a selected sequence only.
-- [ ] Preserve Google Routes steps and route geometry for exact on-screen guidance.
-- [ ] Reject routes with no pedestrian solution.
-- [ ] Record route duration, distance and geometry.
-- [ ] Handle provider timeout and rate limits.
-- [ ] Add maximum detour and total-duration rules.
-- [ ] Add fixtures for success, no-route, unreachable-pair and excessive-duration cases.
+- [x] Add `walkingMatrix` to the routing contract and both mock and Google providers.
+- [x] Request one pairwise duration matrix over surviving candidates.
+- [x] Request full walking routes with geometry for a selected sequence only.
+- [x] Preserve Google Routes steps and route geometry for exact on-screen guidance.
+- [x] Reject routes with no pedestrian solution.
+- [x] Record route duration, distance and geometry.
+- [x] Handle provider timeout and rate limits.
+- [x] Add maximum detour and total-duration rules.
+- [x] Add fixtures for success, no-route, unreachable-pair and excessive-duration cases.
+
+Implementation note, 1 August 2026: the provider, pocket viability analysis,
+single-request final sequence route, API diagnostics and fixtures are complete.
+The live Delhi audit reached Google but the existing Places-only credential was
+rejected. Enable Routes API on a restricted server credential locally and in
+Vercel, then run `npm run audit:routes`; until that activation passes, routing
+is reported as unavailable and no guessed route is shown.
 
 Done when:
 

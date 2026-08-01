@@ -18,6 +18,7 @@ export type ProviderOperation =
   | "nearby_places"
   | "normalise_response"
   | "verify_place"
+  | "walking_matrix"
   | "walking_route";
 
 export type ProviderErrorOptions = {
