@@ -207,7 +207,10 @@ function toPocket(places: PlaceCandidate[]): Pocket {
     places,
     centre: centroidOf(places),
     spanMetres: Math.round(spanOf(places)),
-    categories: [...new Set(places.map((place) => place.primaryCategory))],
+    // A fort may be primarily heritage and also architecture; throwing away
+    // those provider-backed secondary categories made varied historical
+    // pockets look like three copies of the same thing.
+    categories: [...new Set(places.flatMap((place) => place.categories))],
   };
 }
 

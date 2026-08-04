@@ -263,6 +263,7 @@ function normalise(
       visualSignals: [
         `mood-fit:${suggestion.moodFitReason}`,
         `locality:${suggestion.locality}`,
+        `proposed-pocket:${suggestion.suggestedPocket}`,
         `obscurity:${suggestion.obscurity}`,
         ...(place.primaryType ? [`google-type:${place.primaryType}`] : []),
       ],

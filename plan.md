@@ -384,15 +384,16 @@ searches is unaffordable.
 
 So the production question of _what here is actually beautiful, strange,
 historical or culinary_ goes to Sol first. Its prompt defines each mood as a
-quality contract, requires several localities and a 25–40% offbeat share, and
-explicitly rejects generic map furniture, residences and merely low-review
-places. Sol may propose only specifically named, publicly approachable places.
+quality contract, requires two to four compact candidate pockets with three to
+five places each and a 25–40% offbeat share, and explicitly rejects generic map
+furniture, residences and merely low-review places. Sol may propose only
+specifically named, publicly approachable places.
 
 Google then keeps the narrower factual job: Text Search confirms each name
 inside 30 km, replaces the approximate coordinate, supplies current status and
 the map link, and drops anything unmatched. A deterministic final pass rejects
-parking/gate/entrance sub-records, caps one locality at two shortlisted places
-and preserves roughly one-third lesser-known or hidden places. Wikidata and the
+parking/gate/entrance sub-records, preserves at least three stops per selected
+pocket and keeps roughly one-third lesser-known or hidden places. Wikidata and the
 former Google Nearby sweep remain replaceable provider implementations and test
 fallbacks, but no longer define the production candidate pool.
 
@@ -1371,6 +1372,34 @@ Do not claim the next level before the preceding behaviour exists.
 
 ## 20. Decision log
 
+### 2026-08-03 — Ask for pockets, not scattered pins
+
+A production historical request returned twelve real, Google-verified Delhi
+places and still displayed “The pieces didn't form a strong walk.” The
+providers had succeeded. Two deterministic assumptions were dismantling their
+work:
+
+- the Sol prompt rewarded city-wide locality coverage and only softly preferred
+  clusters, so isolated great places competed successfully against usable
+  neighbourhood groups;
+- the final locality cap kept at most two places from a neighbourhood even
+  though a playable pocket requires at least three;
+- pocket variety counted only primary categories, so a heritage place also
+  tagged architecture or garden lost those meaningful secondary signals.
+
+Sol now returns a structured set of three-to-five-place candidate pockets. The
+verification budget is spent only on complete groups, actual Google coordinates
+still decide whether those groups cluster, provider-backed secondary categories
+count toward variety, and the shortlist preserves three stops per chosen pocket
+before adding extras.
+
+A live half-day Historical audit from the established Dwarka coordinate
+returned twelve Sol suggestions, ten Google-verified survivors and two genuine
+geometric pockets: Humayun's Tomb/Nizamuddin and Red Fort/Chandni Chowk. Their
+spans were 886 m and 958 m. The Mehrauli suggestions remained outside the result
+because their verified geometry did not satisfy the same pocket rule; nothing
+was forced together to make the audit pass.
+
 ### 2026-07-31 — Sol chooses meaning; Google proves existence
 
 The Wikidata-anchor improvement fixed Dwarka-specific emptiness but did not fix
@@ -1387,9 +1416,9 @@ The production order is now reversed:
 - Google Text Search independently verifies every name, replaces approximate
   coordinates and supplies the current map identity. Non-matches and
   parking/gate/entrance sub-records are dropped.
-- A deterministic final pass caps a locality at two shortlisted places when
-  several localities exist and guarantees up to 35% lesser-known/hidden places
-  survive the final list.
+- A deterministic final pass originally capped a locality at two shortlisted
+  places. The 3 August audit superseded that rule because it dismantled the
+  three-stop pockets the product needs.
 
 Live runs from Dwarka validated both semantics and grounding. Beautiful returned
 Qutub complex, Jahaz Mahal, Humayun's Tomb, Sunder Nursery, Jama Masjid,

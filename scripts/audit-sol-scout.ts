@@ -1,5 +1,10 @@
 import { distanceMeters } from "@/lib/discovery/deduplicate";
-import { rejectionFor } from "@/lib/discovery/candidate-filters";
+import {
+  filterCandidates,
+  rejectionFor,
+} from "@/lib/discovery/candidate-filters";
+import { findPockets } from "@/lib/discovery/pockets";
+import { getDiscoveryPolicy } from "@/lib/discovery/policy";
 import {
   OpenAIPlaceScout,
   SOL_SCOUT_RADIUS_METRES,
@@ -10,7 +15,12 @@ const origin = {
   latitude: Number(process.argv[2] ?? "28.5921"),
   longitude: Number(process.argv[3] ?? "77.0460"),
 };
-const mood = process.argv[4] === "strange" ? "strange" : "beautiful";
+const requestedMood = process.argv[4];
+const mood = ["historical", "culinary", "strange", "beautiful"].includes(
+  requestedMood ?? "",
+)
+  ? (requestedMood as "historical" | "culinary" | "strange" | "beautiful")
+  : "beautiful";
 const scout = new OpenAIPlaceScout();
 const verifier = new GoogleScoutVerifier();
 
@@ -52,6 +62,7 @@ console.table(
     return {
       solName: suggestion.name,
       locality: suggestion.locality,
+      proposedPocket: suggestion.suggestedPocket,
       obscurity: suggestion.obscurity,
       googleName: place?.name ?? "UNVERIFIED",
       usable: place ? (rejectionFor(place)?.reason ?? "yes") : "no",
@@ -60,4 +71,27 @@ console.table(
         : "-",
     };
   }),
+);
+
+const accepted = filterCandidates(
+  verified.flatMap((outcome) =>
+    outcome.status === "fulfilled" && outcome.value.place
+      ? [outcome.value.place]
+      : [],
+  ),
+).accepted;
+const pockets = findPockets(
+  accepted,
+  getDiscoveryPolicy("half_day", mood).pocket,
+);
+
+console.log(`Accepted after hard filters: ${accepted.length}`);
+console.log(`Geometric pockets: ${pockets.length}`);
+console.table(
+  pockets.map((pocket) => ({
+    places: pocket.places.length,
+    spanMetres: pocket.spanMetres,
+    categories: pocket.categories.join(", "),
+    names: pocket.places.map((place) => place.name).join(" · "),
+  })),
 );

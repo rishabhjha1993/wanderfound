@@ -6,6 +6,7 @@ const ORIGIN = { latitude: 28.5921, longitude: 77.046 };
 const SUGGESTION: ScoutedPlaceSuggestion = {
   name: "Sunder Nursery",
   locality: "Nizamuddin",
+  suggestedPocket: "Nizamuddin heritage gardens",
   approximateCoordinates: { latitude: 28.593, longitude: 77.245 },
   primaryCategory: "garden",
   categories: ["garden", "heritage", "architecture"],
@@ -65,7 +66,11 @@ describe("GoogleScoutVerifier", () => {
       identityVerified: true,
     });
     expect(place?.visualSignals).toEqual(
-      expect.arrayContaining(["locality:Nizamuddin", "obscurity:lesser_known"]),
+      expect.arrayContaining([
+        "locality:Nizamuddin",
+        "proposed-pocket:Nizamuddin heritage gardens",
+        "obscurity:lesser_known",
+      ]),
     );
     expect(place?.attributions.map((source) => source.provider)).toEqual([
       "openai",

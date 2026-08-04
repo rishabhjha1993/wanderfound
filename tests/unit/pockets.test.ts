@@ -147,6 +147,26 @@ describe("pocket clustering", () => {
     expect(pocket!.categories.sort()).toEqual(["heritage", "museum"]);
   });
 
+  it("counts provider-backed secondary categories when judging variety", () => {
+    const base = 15.4989;
+    const candidates = [
+      place("v1", base, 73.8317, "heritage"),
+      place("v2", northOf(base, 200), 73.8317, "heritage"),
+      place("v3", northOf(base, 400), 73.8317, "heritage"),
+    ].map((candidate, index) => ({
+      ...candidate,
+      categories:
+        index === 1
+          ? (["heritage", "architecture"] as PlaceCandidate["categories"])
+          : candidate.categories,
+    }));
+
+    const [pocket] = findPockets(candidates, POLICY);
+
+    expect(pocket).toBeDefined();
+    expect(pocket!.categories.sort()).toEqual(["architecture", "heritage"]);
+  });
+
   it("puts the pocket with the most to find first", () => {
     const base = 15.4989;
     const uneven = [

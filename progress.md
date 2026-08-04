@@ -1,6 +1,6 @@
 # Wanderfound — Build Progress
 
-Last updated: 1 August 2026
+Last updated: 3 August 2026
 
 This is the quick, plain-language companion to [`plan.md`](./plan.md).
 `plan.md` remains the full product and engineering source of truth; this file
@@ -38,16 +38,17 @@ between pockets.
 The production discovery order is now deliberately simple:
 
 1. **Sol scouts first.** It proposes specifically named places across a fixed
-   30 km metropolitan area. Beautiful must be visually exceptional; Strange
-   must have a concrete unusual quality or story. Generic fountains, apartment
+   30 km metropolitan area, grouped into compact candidate walking pockets of
+   three to five places. Beautiful must be visually exceptional; Strange must
+   have a concrete unusual quality or story. Generic fountains, apartment
    amenities and ordinary buildings are explicitly disallowed.
 2. **Google verifies second.** Text Search confirms that every proposed name
    exists inside the radius, replaces Sol's approximate coordinate with the
    mapped point and adds current map metadata. Unmatched suggestions disappear.
-3. **Deterministic guardrails finish the list.** One locality contributes at
-   most two final places when the area has several neighbourhoods, and roughly
-   one-third of the shortlist is reserved for genuine lesser-known or hidden
-   places.
+3. **Deterministic guardrails finish the list.** Incomplete candidate pockets
+   are not allowed to consume verification calls. The shortlist keeps at least
+   three stops from each selected pocket before adding extras, and roughly
+   one-third remains genuinely lesser-known or hidden.
 4. **Google checks the walk.** One small walking matrix per candidate pocket
    proves that every stop can connect on foot. Disconnected pockets, absurd
    detours, legs over 25 minutes and pockets over a 90-minute minimum walk are
@@ -65,6 +66,13 @@ across Mehrauli, Nizamuddin, Old Delhi, Connaught Place, Gole Market, Jor Bagh,
 Kalkaji and Pandav Nagar. Strange returned the Museum of Toilets, Jantar
 Mantar, the Dolls Museum, Waste to Wonder, Bhuli Bhatiyari ka Mahal, Chor Minar,
 Metcalfe's Folly and other specific oddities across eleven localities.
+
+A 3 August Historical regression audit fixed the “12 real places, zero walks”
+failure shown in production. The same Dwarka-area start returned twelve Sol
+suggestions, ten Google-verified survivors and two honest walking pockets:
+Humayun's Tomb/Nizamuddin and Red Fort/Chandni Chowk. The system now asks Sol
+for complete candidate pockets rather than hoping isolated city-wide pins will
+accidentally cluster.
 
 Real data has contradicted an assumption at almost every step; see the 30 and
 31 July decision-log entries.
@@ -155,8 +163,8 @@ paid unlock must never trust client state.
 - [x] Give Beautiful and Strange explicit semantic failure rules.
 - [x] Verify every Sol proposal through Google Text Search and drop unmatched,
       out-of-radius and parking/gate/entrance sub-records.
-- [x] Cap each locality at two final places and preserve a deliberate offbeat
-      share.
+- [x] Preserve at least three places per selected pocket and a deliberate
+      offbeat share.
 - [x] Keep the former Wikidata/Google sweep behind provider boundaries for
       deterministic fallback tests, but remove it from the configured
       production path.
@@ -206,7 +214,7 @@ The worldwide discovery build passed:
 - formatting
 - linting
 - TypeScript
-- 178 unit tests
+- 180 unit tests
 - 18 component tests
 - 3 mobile browser smoke tests
 - production build

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { discoverNearbyPlaces } from "@/lib/discovery/discover-nearby-places";
+import {
+  discoverNearbyPlaces,
+  selectAcrossPockets,
+} from "@/lib/discovery/discover-nearby-places";
 import type { PlaceCurator } from "@/lib/discovery/place-curator";
 import type {
   PlaceScout,
@@ -24,7 +27,28 @@ const INPUT = {
 };
 
 describe("discoverNearbyPlaces", () => {
-  it("uses Sol first, drops unverified suggestions, and prevents one locality taking the shortlist", async () => {
+  it("keeps three stops per pocket before spending shortlist space on extras", () => {
+    const pockets = ["a", "b", "c"].map((prefix, pocketIndex) => ({
+      places: Array.from({ length: 4 }, (_, placeIndex) => ({
+        ...MOCK_PLACE_CANDIDATES[
+          (pocketIndex + placeIndex) % MOCK_PLACE_CANDIDATES.length
+        ]!,
+        providerPlaceId: `${prefix}-${placeIndex}`,
+      })),
+    }));
+
+    const selected = selectAcrossPockets(pockets, 8);
+    const counts = selected.reduce<Record<string, number>>((result, place) => {
+      const pocket = place.providerPlaceId.split("-")[0]!;
+      result[pocket] = (result[pocket] ?? 0) + 1;
+      return result;
+    }, {});
+
+    expect(counts).toEqual({ a: 4, b: 4 });
+    expect(selected).toHaveLength(8);
+  });
+
+  it("uses Sol first, drops unverified suggestions, and preserves complete pockets", async () => {
     const suggestions = [
       scouted("Jor One", "Jor Bagh", "iconic"),
       scouted("Jor Two", "Jor Bagh", "iconic"),
@@ -77,12 +101,12 @@ describe("discoverNearbyPlaces", () => {
       result.places.filter((place) =>
         place.visualSignals.includes("locality:Jor Bagh"),
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(4);
     expect(result.places.some((place) => place.name === "Made Up Palace")).toBe(
       false,
     );
     expect(result.places.map((place) => place.name)).toEqual(
-      expect.arrayContaining(["Nizam Two", "Mehrauli One"]),
+      expect.arrayContaining(["Jor One", "Jor Two", "Jor Three"]),
     );
   });
 
@@ -428,6 +452,7 @@ function scouted(
   return {
     name,
     locality,
+    suggestedPocket: `${locality} walk`,
     approximateCoordinates: INPUT.origin,
     primaryCategory: "garden",
     categories: ["garden", "architecture"],
