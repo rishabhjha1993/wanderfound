@@ -5,36 +5,50 @@ import {
 } from "@/lib/discovery/place-scout";
 
 describe("Sol place scouting guardrails", () => {
-  it("deduplicates names and caps a single locality at four suggestions", () => {
+  it("deduplicates names and spends verification on complete pockets", () => {
     const result = balanceScoutSuggestions(
       [
-        suggestion("Lodhi Garden", "Lodhi Road"),
-        suggestion("Lodhi Garden", "Central Delhi"),
-        suggestion("Tomb One", "Jor Bagh"),
-        suggestion("Tomb Two", "Jor Bagh"),
-        suggestion("Tomb Three", "Jor Bagh"),
-        suggestion("Tomb Four", "Jor Bagh"),
-        suggestion("Tomb Five", "Jor Bagh"),
-        suggestion("Sunder Nursery", "Nizamuddin"),
+        suggestion("A One", "Mehrauli", "Pocket A"),
+        suggestion("A Two", "Mehrauli", "Pocket A"),
+        suggestion("A Three", "Mehrauli", "Pocket A"),
+        suggestion("A Four", "Mehrauli", "Pocket A"),
+        suggestion("A Five", "Mehrauli", "Pocket A"),
+        suggestion("A One", "Elsewhere", "Pocket B"),
+        suggestion("B One", "Nizamuddin", "Pocket B"),
+        suggestion("B Two", "Nizamuddin", "Pocket B"),
+        suggestion("B Three", "Nizamuddin", "Pocket B"),
+        suggestion("B Four", "Nizamuddin", "Pocket B"),
+        suggestion("Orphan One", "Old Delhi", "Incomplete"),
+        suggestion("Orphan Two", "Old Delhi", "Incomplete"),
       ],
-      18,
+      8,
     );
 
     expect(result.map((place) => place.name)).toEqual([
-      "Lodhi Garden",
-      "Tomb One",
-      "Tomb Two",
-      "Tomb Three",
-      "Tomb Four",
-      "Sunder Nursery",
+      "A One",
+      "A Two",
+      "A Three",
+      "B One",
+      "B Two",
+      "B Three",
+      "A Four",
+      "B Four",
     ]);
+    expect(result.map((place) => place.suggestedPocket)).not.toContain(
+      "Incomplete",
+    );
   });
 });
 
-function suggestion(name: string, locality: string): ScoutedPlaceSuggestion {
+function suggestion(
+  name: string,
+  locality: string,
+  suggestedPocket: string,
+): ScoutedPlaceSuggestion {
   return {
     name,
     locality,
+    suggestedPocket,
     approximateCoordinates: { latitude: 28.59, longitude: 77.22 },
     primaryCategory: "garden",
     categories: ["garden", "heritage"],

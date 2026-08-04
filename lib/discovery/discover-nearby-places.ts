@@ -470,10 +470,7 @@ async function discoverFromSolScout({
   const routeEligibleCandidates = routingProvider
     ? accepted.filter((candidate) => routedIds.has(candidate.providerPlaceId))
     : accepted;
-  const places = selectAcrossLocalities(
-    routeEligibleCandidates,
-    policy.shortlistLimit,
-  );
+  const places = selectAcrossPockets(pockets, policy.shortlistLimit);
   const sourceNames = ["OpenAI GPT-5.6 Sol", "Google Maps"];
   const matchedCount = verified.length;
   const failedCount = failed.length;
@@ -536,6 +533,37 @@ async function discoverFromSolScout({
     },
     rejected,
   };
+}
+
+/**
+ * A shortlist is the raw material for two to four walking chapters. Preserve
+ * three stops in each chosen pocket before adding extras; otherwise a
+ * city-diversity cap can dismantle every valid pocket immediately after we
+ * worked to find it.
+ */
+export function selectAcrossPockets(
+  pockets: Array<{ places: PlaceCandidate[] }>,
+  limit: number,
+) {
+  const selectedPockets = pockets.slice(0, Math.floor(limit / 3));
+  const selected = selectedPockets.flatMap((pocket) =>
+    pocket.places.slice(0, 3),
+  );
+  let depth = 3;
+
+  while (selected.length < limit) {
+    let added = false;
+    for (const pocket of selectedPockets) {
+      if (pocket.places[depth] && selected.length < limit) {
+        selected.push(pocket.places[depth]);
+        added = true;
+      }
+    }
+    if (!added) break;
+    depth += 1;
+  }
+
+  return selected;
 }
 
 /**
