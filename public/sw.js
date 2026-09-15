@@ -1,4 +1,4 @@
-const CACHE_NAME = "wanderfound-shell-v1";
+const CACHE_NAME = "wanderfound-outings-v2";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -25,6 +25,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Only navigations use the offline shell. API/provider failures must remain
+  // failures rather than becoming an HTML response disguised as data.
+  if (event.request.mode !== "navigate") return;
 
   event.respondWith(
     fetch(event.request).catch(() =>

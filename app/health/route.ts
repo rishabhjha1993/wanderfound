@@ -7,6 +7,8 @@ export function GET() {
     {
       status: "ok",
       service: "wanderfound-web",
+      experience: "goa-outings-v0",
+      revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? null,
       version: APP_VERSION,
       integrations: {
         supabase: getSupabaseConfigurationStatus(),
