@@ -5,12 +5,12 @@ test("arrival route loads on a mobile viewport", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: "Your next few hours, well wandered.",
+      name: "Give me your next few hours. I’ll make them work.",
     }),
   ).toBeVisible();
 
   await expect(
-    page.getByRole("button", { name: /Find my next move/ }),
+    page.getByRole("button", { name: /Let the agent decide/ }),
   ).toBeVisible();
 });
 
@@ -19,7 +19,7 @@ test("arrival remains usable at 320px with large text", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const begin = page.getByRole("button", { name: /Find my next move/ });
+  const begin = page.getByRole("button", { name: /Let the agent decide/ });
   await expect(begin).toBeVisible();
 
   const overflow = await page.evaluate(

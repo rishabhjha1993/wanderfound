@@ -1,8 +1,8 @@
 # Wanderfound
 
-Wanderfound helps you choose your next worthwhile outing in Goa. Describe your
-mood, starting area and available time; get researched places, revise the choices,
-and take an outing with you.
+Wanderfound is a bounded AI outing agent for Goa. Give it the messy real-world
+context and a few hours; it researches and verifies places, makes one decision,
+prepares a fallback, stays with the active outing and replans when reality changes.
 
 Active product and release plan: [AI-native Goa V0](goa-ai-native-v0.md).
 
@@ -44,10 +44,10 @@ real credentials. Unit and browser smoke tests use fixtures and need no live key
 
 ## Current scope
 
-The public home page needs no account. It supports a typed Goa area or optional
-foreground location, live web research, Google place checks, natural-language
-revisions, browser-local resume, share links, navigation and voluntary outcome
-feedback. Purchasing and mystery gameplay are outside this V0.
+The public home page needs no account. It supports text or browser voice input, a
+typed Goa area or optional foreground location, live web research, Google place
+checks, a primary decision and fallback, an active agent state, situational
+replanning, browser-local preference memory, resume, share links and navigation.
 
 Sessions keep the conversation on the current browser. Shared snapshots exclude
 the conversation and starting location. Precise GPS is used for the current request
@@ -55,7 +55,7 @@ and is not written to browser persistence or analytics. Provider details expire
 from saved sessions after 24 hours and are marked stale after one hour.
 
 Anonymous demand events are structured server logs (`outing_started`,
-`outing_selected`, `outing_navigation`, `outing_went`, `outing_useful`, etc.).
+`outing_agent_accepted`, `outing_replan_requested`, `outing_memory_added`, etc.).
 Navigation is a click signal; `went` is self-reported. Deduplicate by anonymous
 session, outing and event when analysing logs. This release has no durable analytics
 warehouse; retain/export Vercel logs for longer field cohorts.
@@ -67,10 +67,10 @@ Maintain provider-level budget controls for a public test.
 ## Quick test
 
 1. Open the site on your phone and leave the starting area as Siolim, or enter Panjim.
-2. Try a starter or describe a real outing; specify tomorrow if testing after closing time.
-3. Choose an option, inspect its source links and listed hours, and open Maps.
-4. Try “A little closer” or “We’re hungry now.”
-5. Refresh to check resume; share a selected place; report whether you went.
+2. Describe a messy real situation and let the agent make the decision.
+3. Inspect the reasoning and evidence, then put the agent on duty.
+4. Report a closure, crowd, weather change or early finish and inspect the replan.
+5. Complete the outing, save a preference, refresh to check memory, and share the plan.
 
-`/health` reports `experience: "goa-outings-v0"` and the Vercel commit revision.
+`/health` reports `experience: "goa-outing-agent-v0"` and the Vercel commit revision.
 The former mystery roadmap in `plan.md` is retained as historical context.

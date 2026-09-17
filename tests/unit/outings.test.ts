@@ -61,6 +61,14 @@ const result: OutingResult = {
   hours: 3,
   weather: "rain",
   notices: [],
+  agent: {
+    decision: "Go to Goa State Museum.",
+    primaryId: option.id,
+    fallbackId: null,
+    nextAction: "Leave when ready.",
+    itinerary: ["Travel to the museum", "Explore for an hour"],
+    watchFor: ["Check hours"],
+  },
 };
 
 afterEach(() => {
