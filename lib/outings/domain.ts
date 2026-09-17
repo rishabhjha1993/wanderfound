@@ -13,6 +13,7 @@ export const OutingRequestSchema = z
     message: z.string().trim().min(3).max(1200),
     hours: z.number().min(1).max(8),
     transport: TransportSchema,
+    preferences: z.array(z.string().trim().min(2).max(160)).max(8).default([]),
     history: z
       .array(
         z.object({
@@ -80,6 +81,15 @@ export const OutingOptionSchema = z.object({
   sources: z.array(EvidenceSchema).max(5),
 });
 
+export const AgentPlanSchema = z.object({
+  decision: z.string().max(700),
+  primaryId: z.string().max(200).nullable(),
+  fallbackId: z.string().max(200).nullable(),
+  nextAction: z.string().max(300),
+  itinerary: z.array(z.string().max(300)).min(1).max(5),
+  watchFor: z.array(z.string().max(300)).max(4),
+});
+
 export const OutingResultSchema = z.object({
   id: z.string().max(80),
   area: z.string().max(200),
@@ -92,6 +102,7 @@ export const OutingResultSchema = z.object({
   hours: z.number().min(1).max(8),
   weather: z.string().max(300).nullable(),
   notices: z.array(z.string().max(400)).max(6),
+  agent: AgentPlanSchema,
 });
 
 export type OutingRequest = z.infer<typeof OutingRequestSchema>;

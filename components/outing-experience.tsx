@@ -16,31 +16,45 @@ import {
   decodeShare,
   encodeShare,
   readSession,
-  SESSION_KEY,
   writeSession,
 } from "@/lib/outings/session";
 import styles from "./outing-experience.module.css";
 
 const STARTERS = [
-  {
-    icon: "☀",
-    label: "A slower afternoon",
-    prompt:
-      "Two of us want a slow, beautiful afternoon. Somewhere interesting to sit, look around and take it easy. Keep travel short.",
-  },
-  {
-    icon: "◒",
-    label: "Something beyond the beach",
-    prompt:
-      "We’ve done the beaches. Find something creative or cultural that feels like a different side of Goa.",
-  },
-  {
-    icon: "✳",
-    label: "Follow the food",
-    prompt:
-      "We’re hungry. Find distinctive Goan food or a bakery worth visiting, with somewhere to sit. Nothing fancy.",
-  },
+  "We’re tired, hungry and want something distinctly Goan without a long ride.",
+  "It may rain. Give us an interesting indoor afternoon away from the beaches.",
+  "My parents are with us. Keep it comfortable, quiet and worth leaving for.",
 ];
+
+const REPLANS = [
+  [
+    "It’s crowded",
+    "The place is too crowded. Replan with somewhere calmer nearby.",
+  ],
+  [
+    "It’s closed",
+    "The primary place is closed. Switch us to a verified fallback now.",
+  ],
+  [
+    "Weather changed",
+    "The weather changed. Replan the rest of the outing for indoors.",
+  ],
+  [
+    "We finished early",
+    "We finished early. Give us the best next move nearby.",
+  ],
+  ["We’re hungry", "We’re hungry now. Replan around distinctive local food."],
+] as const;
+
+const MEMORY_CHOICES = [
+  "We like a slow pace",
+  "We prefer local over touristy",
+  "Keep journeys short",
+  "We like cultural places",
+  "Food should be vegetarian-friendly",
+] as const;
+
+type Phase = "planning" | "active" | "complete";
 type EventName =
   | "started"
   | "selected"
@@ -52,7 +66,22 @@ type EventName =
   | "changed_plans"
   | "did_not_go"
   | "useful"
-  | "not_useful";
+  | "not_useful"
+  | "agent_accepted"
+  | "replan_requested"
+  | "memory_added";
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: (event: {
+    results: { [index: number]: { [index: number]: { transcript: string } } };
+  }) => void;
+  onerror: () => void;
+  onend: () => void;
+  start: () => void;
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 export function OutingExperience() {
   const [area, setArea] = useState("Siolim");
@@ -61,8 +90,12 @@ export function OutingExperience() {
     useState<OutingRequest["transport"]>("scooter");
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState<OutingRequest["history"]>([]);
+  const [preferences, setPreferences] = useState<string[]>([]);
   const [result, setResult] = useState<OutingResult | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("planning");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [clock, setClock] = useState(0);
   const [origin, setOrigin] = useState<Coordinate>();
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -72,6 +105,8 @@ export function OutingExperience() {
   const [shared, setShared] = useState(false);
   const [storageWorks, setStorageWorks] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [feedback, setFeedback] = useState("");
   const sessionId = useRef("");
   const abort = useRef<AbortController | null>(null);
@@ -95,6 +130,10 @@ export function OutingExperience() {
   }
 
   useEffect(() => {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
     const loadSharedOuting = () => {
       const share = new URLSearchParams(window.location.hash.slice(1)).get(
         "outing",
@@ -103,18 +142,24 @@ export function OutingExperience() {
       const parsed = decodeShare(share);
       if (parsed) {
         setResult(parsed);
-        setSelectedId(parsed.options[0]?.id ?? null);
+        setSelectedId(parsed.agent.primaryId);
+        setPhase("planning");
         setShared(true);
-        setFeedback("");
         source.current = "shared";
         track("shared_opened", parsed.id);
       } else {
         setError(
-          "This shared outing couldn’t be read. You can still find a new one below.",
+          "This shared outing could not be read. Start a fresh one below.",
         );
       }
     };
     const timer = window.setTimeout(() => {
+      setVoiceAvailable(
+        Boolean(
+          speechWindow.SpeechRecognition ||
+          speechWindow.webkitSpeechRecognition,
+        ),
+      );
       sessionId.current = crypto.randomUUID();
       let restored = null;
       try {
@@ -129,8 +174,11 @@ export function OutingExperience() {
         setTransport(restored.transport);
         setDraft(restored.draft);
         setHistory(restored.history);
+        setPreferences(restored.preferences);
         setResult(restored.result);
         setSelectedId(restored.selectedId);
+        setPhase(restored.phase);
+        setStartedAt(restored.startedAt);
         if (restored.result && !window.location.hash.includes("outing="))
           track("returned", restored.result.id);
       }
@@ -146,6 +194,12 @@ export function OutingExperience() {
   }, []);
 
   useEffect(() => {
+    if (phase !== "active") return;
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [phase]);
+
+  useEffect(() => {
     if (!ready || shared) return;
     try {
       const saved = writeSession(localStorage, {
@@ -157,6 +211,9 @@ export function OutingExperience() {
         history,
         result,
         selectedId,
+        preferences,
+        phase,
+        startedAt,
         updatedAt: Date.now(),
       });
       if (!saved) queueMicrotask(() => setStorageWorks(false));
@@ -171,29 +228,34 @@ export function OutingExperience() {
     history,
     result,
     selectedId,
+    preferences,
+    phase,
+    startedAt,
     ready,
     shared,
   ]);
 
-  async function generate(override?: string) {
+  async function generate(override?: string, isReplan = false) {
     const text = (override ?? draft).trim();
     if (busy) return;
     if (text.length < 3 || area.trim().length < 2) {
-      setError(
-        "Add a Goa area and tell us a little about what you’d like to do.",
-      );
+      setError("Tell your agent what is happening and add your Goa area.");
       return;
     }
     setBusy(true);
     setError("");
     setMessage("");
     setFeedback("");
-    setStage("Starting your research");
+    setStage(
+      isReplan
+        ? "Reassessing the live situation"
+        : "Understanding the situation",
+    );
     const controller = new AbortController();
     abort.current = controller;
-    const timer = window.setTimeout(() => controller.abort(), 65000);
+    const timer = window.setTimeout(() => controller.abort(), 65_000);
     const context = shared ? [] : history;
-    track("started");
+    track(isReplan ? "replan_requested" : "started", result?.id);
     let completed = false;
     try {
       const response = await fetch("/api/outings", {
@@ -206,17 +268,17 @@ export function OutingExperience() {
           transport,
           message: text,
           history: context,
+          preferences,
         }),
         signal: controller.signal,
       });
       if (!response.ok) {
         const body = await response.json();
         throw new Error(
-          body.error || "Couldn’t start research. Please try again.",
+          body.error || "The agent could not start. Please try again.",
         );
       }
-      if (!response.body)
-        throw new Error("The connection was interrupted. Please try again.");
+      if (!response.body) throw new Error("The connection was interrupted.");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -229,7 +291,9 @@ export function OutingExperience() {
         if (event.type === "result") {
           const next = OutingResultSchema.parse(event.result);
           setResult(next);
-          setSelectedId(null);
+          setSelectedId(next.agent.primaryId);
+          setPhase("planning");
+          setStartedAt(null);
           setHours(next.hours);
           setTransport(next.transport);
           setDraft("");
@@ -242,15 +306,14 @@ export function OutingExperience() {
               {
                 role: "assistant" as const,
                 content: JSON.stringify({
-                  summary: next.summary,
+                  decision: next.agent.decision,
+                  primary: next.options.find(
+                    (option) => option.id === next.agent.primaryId,
+                  )?.name,
+                  fallback: next.options.find(
+                    (option) => option.id === next.agent.fallbackId,
+                  )?.name,
                   context: next.context,
-                  places: next.options.map((o) => ({
-                    name: o.name,
-                    category: o.category,
-                    distanceKm: o.distanceKm,
-                  })),
-                  hours: next.hours,
-                  transport: next.transport,
                 }).slice(0, 1600),
               },
             ].slice(-10),
@@ -277,19 +340,17 @@ export function OutingExperience() {
       buffer += decoder.decode();
       if (buffer.trim()) acceptLine(buffer);
       if (!completed)
-        throw new Error(
-          "The connection ended before your outing was ready. Please try again.",
-        );
-    } catch (err) {
+        throw new Error("The connection ended before the plan was ready.");
+    } catch (caught) {
       setError(
         controller.signal.aborted
-          ? "Research was interrupted. Your request is still here—try again when you’re ready."
-          : err instanceof Error
-            ? err.message
+          ? "The agent was interrupted. Your situation is saved—try again."
+          : caught instanceof Error
+            ? caught.message
             : "Something went wrong. Please try again.",
       );
     } finally {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       setBusy(false);
       abort.current = null;
     }
@@ -297,13 +358,10 @@ export function OutingExperience() {
 
   function useLocation() {
     if (!navigator.geolocation) {
-      setError(
-        "Location isn’t available in this browser. Enter your area instead.",
-      );
+      setError("Location is unavailable here. Enter your area instead.");
       return;
     }
     setLocating(true);
-    setError("");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocating(false);
@@ -313,22 +371,44 @@ export function OutingExperience() {
         };
         if (!inGoa(point)) {
           setMessage(
-            "You can test from anywhere. Choose a Goa area below; we’re exploring Goa first.",
+            "You can test from anywhere—choose a Goa starting area below.",
           );
           return;
         }
         setOrigin(point);
         setArea("My location in Goa");
         setMessage(
-          "Location set for this request. Your precise starting point isn’t included in shared links.",
+          "Live starting point set. It will not appear in shared links.",
         );
       },
       () => {
         setLocating(false);
-        setMessage("No problem—type your Goa area instead.");
+        setMessage("Location was not shared. Type your Goa area instead.");
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
     );
+  }
+
+  function startListening() {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Constructor =
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!Constructor) return;
+    const recognition = new Constructor();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript;
+      if (transcript) setDraft((current) => `${current} ${transcript}`.trim());
+    };
+    recognition.onerror = () =>
+      setMessage("I could not hear that. You can type instead.");
+    recognition.onend = () => setListening(false);
+    setListening(true);
+    recognition.start();
   }
 
   async function share(option: OutingOption) {
@@ -338,28 +418,50 @@ export function OutingExperience() {
       if (navigator.share)
         await navigator.share({
           title: option.name,
-          text: "A little Goa discovery, from Wanderfound.",
+          text: "A Goa plan from Wanderfound.",
           url,
         });
       else {
         await navigator.clipboard.writeText(url);
         setMessage(
-          "Share link copied. It includes this place, not your conversation or starting location.",
+          "Plan link copied without your conversation or starting location.",
         );
       }
       track("shared", result.id);
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError"))
+    } catch (caught) {
+      if (!(caught instanceof DOMException && caught.name === "AbortError"))
         setMessage(
-          "Sharing isn’t available here. Open the place in Maps to share it from there.",
+          "Sharing is unavailable here. Share the place from Maps instead.",
         );
     }
+  }
+
+  function acceptPlan() {
+    if (!result?.agent.primaryId) return;
+    setSelectedId(result.agent.primaryId);
+    setPhase("active");
+    setStartedAt(Date.now());
+    setClock(Date.now());
+    track("agent_accepted", result.id);
+  }
+
+  function remember(preference: string) {
+    setPreferences((current) =>
+      [preference, ...current.filter((item) => item !== preference)].slice(
+        0,
+        8,
+      ),
+    );
+    track("memory_added", result?.id);
+    setFeedback(`Remembered: “${preference}”`);
   }
 
   function reset() {
     abort.current?.abort();
     setResult(null);
     setSelectedId(null);
+    setPhase("planning");
+    setStartedAt(null);
     setHistory([]);
     setDraft("");
     setError("");
@@ -367,14 +469,46 @@ export function OutingExperience() {
     setFeedback("");
     setShared(false);
     window.history.replaceState(null, "", "/");
-    try {
-      localStorage.removeItem(SESSION_KEY);
-    } catch {}
     textareaRef.current?.focus();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const selected = result?.options.find((o) => o.id === selectedId);
+  const primary = result?.options.find(
+    (option) => option.id === result.agent.primaryId,
+  );
+  const fallback = result?.options.find(
+    (option) => option.id === result.agent.fallbackId,
+  );
+  const selected =
+    result?.options.find((option) => option.id === selectedId) ?? primary;
+  const activeMinutes = startedAt
+    ? Math.max(0, Math.floor((clock - startedAt) / 60_000))
+    : 0;
+  const usingFallback = Boolean(
+    selected && fallback && selected.id === fallback.id,
+  );
+  const runNextAction = usingFallback
+    ? selected?.travelMinutes !== null
+      ? `Open the route now. Allow about ${selected?.travelMinutes} minutes to reach the fallback.`
+      : "Open the fallback in Maps and check the live journey before leaving."
+    : result?.agent.nextAction;
+  const runItinerary =
+    usingFallback && selected
+      ? [
+          selected.travelMinutes !== null
+            ? `Travel to ${selected.name} · about ${selected.travelMinutes} min`
+            : `Check the live route to ${selected.name}`,
+          `${selected.experience} · allow about ${selected.visitMinutes} min`,
+          "Tell me what changed and I’ll rebuild the plan",
+        ]
+      : (result?.agent.itinerary ?? []);
+  const runWatchFor =
+    usingFallback && selected
+      ? [selected.practicalNote, result?.weather].filter(
+          (value): value is string => Boolean(value),
+        )
+      : (result?.agent.watchFor ?? []);
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -385,93 +519,94 @@ export function OutingExperience() {
           wanderfound<span className={styles.brandDot}>.</span>
         </Link>
         <span className={styles.edition}>
-          GOA FIELD EDITION <span>01</span>
+          GOA AGENT <span>LIVE</span>
         </span>
       </header>
+
       <section className={`${styles.hero} ${result ? styles.heroCompact : ""}`}>
         <div className={styles.eyebrow}>
-          <span /> A LITTLE LESS PLANNING. A LITTLE MORE GOA.
+          <span /> ONE BRIEF. ONE DECISION. A PLAN THAT ADAPTS.
         </div>
         <h1>
-          Your next few hours,
+          Give me your next few hours.
           <br />
-          <em>well wandered.</em>
+          <em>I’ll make them work.</em>
         </h1>
         <p className={styles.intro}>
-          Tell us what you’re in the mood for. We’ll find a real place worth
-          your time—and figure out the practical bits.
+          Tell me the messy version—who you’re with, how you feel, what changed.
+          I’ll research the real world, make the call, and stay with the plan.
         </p>
         <div className={styles.postmark} aria-hidden="true">
-          <span>15.49° N</span>
+          <span>AGENT 01</span>
           <b>
-            GO
+            BRIEF
             <br />
-            SOMEWHERE
+            DECIDE
             <br />
-            GOOD
+            ADAPT
           </b>
-          <span>73.83° E</span>
+          <span>GOA · LIVE</span>
         </div>
       </section>
 
-      <section className={styles.composer} aria-label="Plan your outing">
+      <section className={styles.composer} aria-label="Brief your outing agent">
         <div className={styles.composerTop}>
           <span className={styles.label}>
-            {result && !shared
-              ? "KEEP THE GOOD PARTS. CHANGE THE REST."
-              : "LET’S START WITH YOU"}
+            {result ? "TELL THE AGENT WHAT CHANGED" : "BRIEF YOUR AGENT"}
           </span>
           {result ? (
-            <button
-              className={styles.textButton}
-              type="button"
-              onClick={reset}
-              disabled={busy}
-            >
+            <button className={styles.textButton} type="button" onClick={reset}>
               Start fresh ↗
             </button>
           ) : (
-            <span className={styles.freeLabel}>Free to explore</span>
+            <span className={styles.freeLabel}>No sign-in · free to test</span>
           )}
         </div>
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void generate();
+            void generate(undefined, Boolean(result));
           }}
         >
-          <label className="sr-only" htmlFor="outing-request">
-            What would you like to do?
-          </label>
-          <textarea
-            id="outing-request"
-            ref={textareaRef}
-            className={styles.prompt}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            maxLength={1200}
-            disabled={busy}
-            placeholder={
-              result && !shared
-                ? "A little closer? Less walking? Tell me what to change…"
-                : "We’ve done the beaches. Two of us, a scooter, and an afternoon to spare…"
-            }
-            rows={3}
-          />
+          <div className={styles.promptWrap}>
+            <label className="sr-only" htmlFor="outing-request">
+              What is your situation right now?
+            </label>
+            <textarea
+              id="outing-request"
+              ref={textareaRef}
+              className={styles.prompt}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              maxLength={1200}
+              disabled={busy}
+              placeholder={
+                result
+                  ? "The place is packed, we finished early, it started raining…"
+                  : "We’re in Panjim, it may rain, my parents are tired, and we want something distinctly Goan before dinner…"
+              }
+              rows={3}
+            />
+            {voiceAvailable && (
+              <button
+                className={styles.voice}
+                type="button"
+                onClick={startListening}
+                disabled={busy || listening}
+              >
+                {listening ? "Listening…" : "◉ Speak"}
+              </button>
+            )}
+          </div>
           {!result && (
             <div className={styles.starters}>
               {STARTERS.map((starter) => (
                 <button
                   type="button"
-                  key={starter.label}
-                  onClick={() => {
-                    setDraft(starter.prompt);
-                    textareaRef.current?.focus();
-                  }}
-                  disabled={busy}
+                  key={starter}
+                  onClick={() => setDraft(starter)}
                 >
-                  <span aria-hidden="true">{starter.icon}</span>
-                  {starter.label}
+                  {starter.split(".")[0]} ↗
                 </button>
               ))}
             </div>
@@ -496,7 +631,6 @@ export function OutingExperience() {
                   onClick={useLocation}
                   disabled={busy || locating}
                   aria-label="Use my location"
-                  title="Use my location"
                 >
                   {locating ? "…" : "⌖"}
                 </button>
@@ -519,16 +653,16 @@ export function OutingExperience() {
               </datalist>
             </div>
             <div>
-              <label htmlFor="outing-hours">TIME TO SPARE</label>
+              <label htmlFor="outing-hours">TIME YOU’RE GIVING ME</label>
               <select
                 id="outing-hours"
                 value={hours}
                 onChange={(event) => setHours(Number(event.target.value))}
                 disabled={busy}
               >
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((h) => (
-                  <option key={h} value={h}>
-                    {h} {h === 1 ? "hour" : "hours"}
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => (
+                  <option key={value} value={value}>
+                    {value} {value === 1 ? "hour" : "hours"}
                   </option>
                 ))}
               </select>
@@ -551,32 +685,39 @@ export function OutingExperience() {
             <button
               className={styles.primary}
               type="submit"
-              disabled={busy || !ready}
+              disabled={busy || !ready || draft.trim().length < 3}
             >
               {busy
-                ? "Finding your next move…"
-                : result && !shared
-                  ? "Rethink my outing ↗"
-                  : "Find my next move ↗"}
+                ? "Agent is working…"
+                : result
+                  ? "Replan now ↗"
+                  : "Let the agent decide ↗"}
             </button>
           </div>
         </form>
         <div className={styles.composerFoot}>
-          <span>Real places. Current research. Your kind of day.</span>
+          <span>Research · verification · routing · fallback</span>
           <span>
             {storageWorks
-              ? "Saved on this browser"
-              : "Browser storage unavailable"}
+              ? `${preferences.length} remembered preference${preferences.length === 1 ? "" : "s"}`
+              : "Browser memory unavailable"}
           </span>
         </div>
+        {preferences.length > 0 && (
+          <div className={styles.memory}>
+            <strong>Agent memory</strong>
+            {preferences.map((preference) => (
+              <span key={preference}>{preference}</span>
+            ))}
+          </div>
+        )}
         {busy && (
           <div className={styles.progress} role="status">
             <span className={styles.spinner} />
             <div>
               <strong>{stage}</strong>
               <small>
-                This usually takes around half a minute. You can leave the tab
-                open.
+                Searching, checking and choosing—not just generating a list.
               </small>
             </div>
             <button
@@ -604,275 +745,286 @@ export function OutingExperience() {
         <section
           ref={resultsRef}
           className={styles.results}
-          aria-label="Your outing choices"
+          aria-label="Your agent’s plan"
           aria-busy={busy}
         >
-          <div className={styles.resultHeading}>
+          <div className={styles.agentBar}>
             <div>
-              <span className={styles.eyebrow}>
-                {shared
-                  ? "A DISCOVERY, PASSED ALONG"
-                  : "A FEW GOOD POSSIBILITIES"}
-              </span>
-              <h2>
-                {selected
-                  ? "That sounds like your kind of day."
-                  : result.options.length
-                    ? "Here’s where I’d start."
-                    : "Let’s try a different angle."}
-              </h2>
+              <span
+                className={`${styles.pulse} ${phase === "active" ? styles.pulseLive : ""}`}
+              />
+              <strong>
+                {phase === "active"
+                  ? "AGENT ON DUTY"
+                  : phase === "complete"
+                    ? "OUTING COMPLETE"
+                    : "PLAN READY"}
+              </strong>
             </div>
-            <span className={styles.checked}>
-              Checked{" "}
-              {new Date(result.checkedAt).toLocaleTimeString("en-IN", {
-                hour: "numeric",
-                minute: "2-digit",
-                timeZone: "Asia/Kolkata",
-              })}{" "}
-              IST
+            <span>
+              {phase === "active"
+                ? `${activeMinutes} min into this outing`
+                : `Checked ${new Date(result.checkedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })} IST`}
             </span>
           </div>
-          <p className={styles.summary}>{result.summary}</p>
-          {isStale(result.checkedAt) && (
-            <p className={styles.stale}>
-              This outing is from an earlier session. Recheck opening times in
-              Maps, or ask for fresh research before heading out.
-            </p>
+          <div className={styles.decision}>
+            <span className={styles.eyebrow}>
+              {shared ? "A PLAN, PASSED ALONG" : "THE CALL"}
+            </span>
+            <h2>{primary ? primary.title : "I need one more constraint."}</h2>
+            <p>{result.agent.decision}</p>
+            {result.weather && (
+              <p className={styles.weather}>☁ {result.weather}</p>
+            )}
+            {isStale(result.checkedAt) && (
+              <p className={styles.stale}>
+                The live checks are over an hour old. Ask the agent to recheck
+                before leaving.
+              </p>
+            )}
+          </div>
+
+          {primary && (
+            <div className={styles.agentGrid}>
+              <div>
+                <AgentPlaceCard
+                  option={selected ?? primary}
+                  role={usingFallback ? "ACTIVE FALLBACK" : "PRIMARY MOVE"}
+                  transport={result.transport}
+                  active={phase === "active"}
+                  onNavigate={() => track("navigation", result.id)}
+                  onShare={() => void share(selected ?? primary)}
+                  onAccept={acceptPlan}
+                  shared={shared}
+                />
+                {fallback && selected?.id !== fallback.id && (
+                  <details className={styles.fallback}>
+                    <summary>
+                      <span>
+                        <b>BACKUP READY</b>
+                        {fallback.name}
+                      </span>
+                      <span>View fallback +</span>
+                    </summary>
+                    <p>{fallback.why}</p>
+                    <div>
+                      <button
+                        className={styles.secondary}
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(fallback.id);
+                          setPhase("active");
+                          setStartedAt(Date.now());
+                          track("selected", result.id);
+                        }}
+                      >
+                        Switch to this backup
+                      </button>
+                      <a
+                        href={fallback.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Check in Maps ↗
+                      </a>
+                    </div>
+                  </details>
+                )}
+              </div>
+              <aside className={styles.runSheet}>
+                <span className={styles.label}>THE RUN OF SHOW</span>
+                <p className={styles.nextAction}>{runNextAction}</p>
+                <ol>
+                  {runItinerary.map((step, index) => (
+                    <li key={step}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <p>{step}</p>
+                    </li>
+                  ))}
+                </ol>
+                {runWatchFor.length > 0 && (
+                  <div className={styles.watch}>
+                    <strong>Agent is watching</strong>
+                    {runWatchFor.map((item) => (
+                      <p key={item}>△ {item}</p>
+                    ))}
+                  </div>
+                )}
+              </aside>
+            </div>
           )}
-          {result.weather && (
-            <p className={styles.weather}>
-              ☁ {result.weather}{" "}
-              <a
-                href="https://open-meteo.com/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Source ↗
-              </a>
-            </p>
-          )}
+
           {result.clarification && (
             <div className={styles.empty}>
-              <span aria-hidden="true">↻</span>
+              <span>↻</span>
               <p>{result.clarification}</p>
               <button
                 className={styles.secondary}
-                onClick={() => textareaRef.current?.focus()}
                 type="button"
+                onClick={() => textareaRef.current?.focus()}
               >
-                Adjust my request ↑
+                Add that detail ↑
               </button>
             </div>
           )}
-          <div className={styles.cards}>
-            {result.options.map((option, index) => (
-              <OutingCard
-                key={option.id}
-                option={option}
-                index={index}
-                selected={selectedId === option.id}
-                shared={shared}
-                transport={result.transport}
-                onSelect={() => {
-                  setSelectedId(option.id);
-                  setFeedback("");
-                  track("selected", result.id);
-                }}
-                onNavigate={() => track("navigation", result.id)}
-                onShare={() => void share(option)}
-              />
-            ))}
-          </div>
-          {result.options.length > 0 && (
-            <>
-              {!shared && (
-                <div className={styles.refine}>
-                  <span>Not quite your mood?</span>
-                  {[
-                    "A little closer",
-                    "Less walking",
-                    "Something indoors",
-                    "We’re hungry now",
-                  ].map((revision) => (
-                    <button
-                      key={revision}
-                      disabled={busy}
-                      onClick={() => {
-                        setDraft(revision);
-                        void generate(revision);
-                      }}
-                      type="button"
-                    >
-                      {revision} ↗
-                    </button>
-                  ))}
-                </div>
-              )}
-              {selected && (
-                <div className={styles.feedback}>
-                  <div>
-                    <span className={styles.label}>HOW DID IT GO?</span>
-                    <p>Your real-world verdict helps shape Wanderfound.</p>
-                  </div>
-                  <div>
-                    {feedback ? (
-                      <span role="status">{feedback}</span>
-                    ) : (
-                      <>
-                        {(
-                          [
-                            ["went", "We went"],
-                            ["changed_plans", "Changed plans"],
-                            ["did_not_go", "Didn’t go"],
-                          ] as const
-                        ).map(([event, label]) => (
-                          <button
-                            className={styles.secondary}
-                            type="button"
-                            key={event}
-                            onClick={() => {
-                              track(event, result.id);
-                              setFeedback(
-                                event === "went"
-                                  ? "Thanks for taking us along. Was it worth the trip?"
-                                  : "Thanks—that’s useful to know. Try another outing whenever you’re ready.",
-                              );
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {feedback.includes("worth the trip") && (
-                      <div className={styles.verdict}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            track("useful", result.id);
-                            setFeedback(
-                              "Good to hear. Come back when you have a few more hours to fill.",
-                            );
-                          }}
-                        >
-                          Yes, worth it
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            track("not_useful", result.id);
-                            setFeedback(
-                              "Thanks for being honest. We’re learning what deserves your time.",
-                            );
-                          }}
-                        >
-                          Not really
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              <details className={styles.notices}>
-                <summary>A few practical things</summary>
-                <ul>
-                  {result.notices.map((notice) => (
-                    <li key={notice}>{notice}</li>
-                  ))}
-                </ul>
+
+          {phase === "active" && !shared && (
+            <div className={styles.liveConsole}>
+              <div>
+                <span className={styles.label}>REALITY CHANGED?</span>
+                <h3>Tell me. I’ll rebuild the plan.</h3>
                 <p>
-                  Research uses the linked sources; place information is
-                  provided by Google Maps. A place listing does not confirm a
-                  booking.
+                  Your accepted constraints and preferences stay in context.
                 </p>
-              </details>
-            </>
+              </div>
+              <div>
+                {REPLANS.map(([label, prompt]) => (
+                  <button
+                    type="button"
+                    key={label}
+                    disabled={busy}
+                    onClick={() => void generate(prompt, true)}
+                  >
+                    {label} ↗
+                  </button>
+                ))}
+              </div>
+              <button
+                className={styles.done}
+                type="button"
+                onClick={() => {
+                  setPhase("complete");
+                  track("went", result.id);
+                  setFeedback("What should I remember for next time?");
+                }}
+              >
+                We’re done with this outing ✓
+              </button>
+            </div>
           )}
+
+          {phase === "complete" && !shared && (
+            <div className={styles.feedback}>
+              <div>
+                <span className={styles.label}>CLOSE THE LOOP</span>
+                <h3>{feedback || "What should I remember?"}</h3>
+                <p>
+                  These preferences stay on this browser and shape the next
+                  plan.
+                </p>
+              </div>
+              <div>
+                {MEMORY_CHOICES.map((preference) => (
+                  <button
+                    className={styles.secondary}
+                    type="button"
+                    key={preference}
+                    onClick={() => remember(preference)}
+                  >
+                    {preferences.includes(preference) ? "✓ " : "+ "}
+                    {preference}
+                  </button>
+                ))}
+                <button
+                  className={styles.primary}
+                  type="button"
+                  onClick={reset}
+                >
+                  Plan what’s next ↗
+                </button>
+              </div>
+            </div>
+          )}
+
+          <details className={styles.notices}>
+            <summary>Evidence and practical limits</summary>
+            <ul>
+              {result.notices.map((notice) => (
+                <li key={notice}>{notice}</li>
+              ))}
+            </ul>
+            <p>
+              Research uses linked sources. Place information is supplied by
+              Google Maps. No booking is implied.
+            </p>
+          </details>
         </section>
       )}
 
       {!result && (
         <section className={styles.how}>
           <div>
-            <span>01 / YOUR MOOD</span>
-            <h3>Start with a feeling.</h3>
-            <p>Hungry, curious, a little restless. A sentence is plenty.</p>
-          </div>
-          <div>
-            <span>02 / THE REAL WORLD</span>
-            <h3>We do the checking.</h3>
-            <p>Real places, source links, opening details and the journey.</p>
-          </div>
-          <div>
-            <span>03 / ROOM TO WANDER</span>
-            <h3>Make it your own.</h3>
+            <span>01 / BRIEF</span>
+            <h3>Give me the messy truth.</h3>
             <p>
-              Change your mind. Take a friend. Find your next little discovery.
+              Mood, people, energy, weather, appetite. Natural language is the
+              interface.
+            </p>
+          </div>
+          <div>
+            <span>02 / DECIDE</span>
+            <h3>I make the call.</h3>
+            <p>
+              I search, verify and rank one primary move with a credible
+              fallback.
+            </p>
+          </div>
+          <div>
+            <span>03 / ADAPT</span>
+            <h3>I stay with the outing.</h3>
+            <p>
+              Report crowds, closures or a changed mood and I will rebuild the
+              plan.
             </p>
           </div>
         </section>
       )}
       <footer className={styles.footer}>
-        <span>Made for days that don’t need a big plan.</span>
+        <span>An experimental real-world agent for Goa.</span>
         <span>
-          GOA, FOR NOW. <span aria-hidden="true">✳</span>
+          GOA, FOR NOW. <span>✳</span>
         </span>
       </footer>
     </main>
   );
 }
 
-function OutingCard({
+function AgentPlaceCard({
   option,
-  index,
-  selected,
-  shared,
+  role,
   transport,
-  onSelect,
+  active,
+  shared,
+  onAccept,
   onNavigate,
   onShare,
 }: {
   option: OutingOption;
-  index: number;
-  selected: boolean;
-  shared: boolean;
+  role: string;
   transport: OutingRequest["transport"];
-  onSelect: () => void;
+  active: boolean;
+  shared: boolean;
+  onAccept: () => void;
   onNavigate: () => void;
   onShare: () => void;
 }) {
-  const label = {
-    nature: "OUTSIDE & UNHURRIED",
-    culture: "A LITTLE CULTURE",
-    food: "FOLLOW YOUR APPETITE",
-    creative: "SOMETHING DIFFERENT",
-    slow: "TAKE IT SLOW",
-  }[option.category];
   return (
-    <article
-      className={`${styles.card} ${selected ? styles.cardSelected : ""}`}
-    >
+    <article className={`${styles.card} ${styles.heroCard}`}>
       <div
         className={`${styles.cardArt} ${styles[option.category]}`}
         aria-hidden="true"
       >
-        <svg viewBox="0 0 360 150" preserveAspectRatio="xMidYMid slice">
-          <circle cx="275" cy="42" r="25" />
-          <path d="M-20 125Q55 40 133 110T290 75T400 95V160H-20Z" />
-          <path d="M-20 152Q70 88 162 140T360 95" />
-          <path d="M40 155L63 58M63 58Q14 13 2 53M63 58Q105 3 142 30M63 58Q115 39 136 78M63 58Q17 32 5 84" />
+        <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMid slice">
+          <circle cx="470" cy="46" r="32" />
+          <path d="M-20 155Q95 30 230 130T490 80T650 115V200H-20Z" />
+          <path d="M-20 180Q120 95 280 165T620 108" />
+          <path d="M70 190L103 70M103 70Q35 12 12 65M103 70Q170 4 220 42M103 70Q178 45 206 98M103 70Q35 35 12 110" />
         </svg>
-        <span>
-          {String(index + 1).padStart(2, "0")} / {label}
-        </span>
+        <span>{role}</span>
       </div>
       <div className={styles.cardBody}>
         <div className={styles.cardEyebrow}>
-          <span>
-            {index === 0 && !shared
-              ? "OUR FIRST PICK"
-              : "ANOTHER WAY TO SPEND IT"}
-          </span>
+          <span>{option.name}</span>
           {option.openNow !== null && (
             <span className={option.openNow ? styles.open : styles.closed}>
               {option.openNow ? "Open now" : "Closed now"}
@@ -880,16 +1032,15 @@ function OutingCard({
           )}
         </div>
         <h3>{option.title}</h3>
-        <p className={styles.placeName}>{option.name}</p>
         <p className={styles.why}>{option.why}</p>
         <div className={styles.facts}>
-          <span>◷ Around {option.visitMinutes} min there</span>
+          <span>◷ About {option.visitMinutes} min there</span>
           {!shared && (
             <span>
               ↗{" "}
               {option.travelMinutes !== null
                 ? `~${option.travelMinutes} min each way`
-                : `${option.distanceKm} km direct · travel unverified`}
+                : `${option.distanceKm} km direct · check route`}
             </span>
           )}
           <span>₹ {option.priceLabel}</span>
@@ -897,28 +1048,30 @@ function OutingCard({
         <p className={styles.experience}>{option.experience}</p>
         <details className={styles.details}>
           <summary>
-            Details & sources <span>+</span>
+            Verified details & sources <span>+</span>
           </summary>
           <p>{option.address}</p>
-          {option.practicalNote && <p>{option.practicalNote}</p>}
+          <p>{option.practicalNote}</p>
           {option.weeklyHours.length > 0 && (
-            <>
-              <strong>Listed hours</strong>
-              <ul>
-                {option.weeklyHours.map((day) => (
-                  <li key={day}>{day}</li>
-                ))}
-              </ul>
-            </>
+            <ul>
+              {option.weeklyHours.map((day) => (
+                <li key={day}>{day}</li>
+              ))}
+            </ul>
           )}
           <div className={styles.sources}>
-            {option.sources.map((s) => (
-              <a href={s.url} key={s.url} target="_blank" rel="noreferrer">
-                {s.title} ↗
+            {option.sources.map((item) => (
+              <a
+                href={item.url}
+                key={item.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {item.title} ↗
               </a>
             ))}
             <a href={option.mapsUrl} target="_blank" rel="noreferrer">
-              Google Maps · place details ↗
+              Google Maps listing ↗
             </a>
             {option.website && (
               <a href={option.website} target="_blank" rel="noreferrer">
@@ -928,7 +1081,7 @@ function OutingCard({
           </div>
         </details>
         <div className={styles.cardActions}>
-          {selected ? (
+          {active || shared ? (
             <>
               <a
                 className={styles.primary}
@@ -937,24 +1090,15 @@ function OutingCard({
                 target="_blank"
                 rel="noreferrer"
               >
-                Let’s go · open Maps ↗
+                Open live route ↗
               </a>
-              <button
-                className={styles.share}
-                type="button"
-                onClick={onShare}
-                aria-label={`Share ${option.name}`}
-              >
-                ↗ Share
+              <button className={styles.share} type="button" onClick={onShare}>
+                Share this plan
               </button>
             </>
           ) : (
-            <button
-              className={styles.secondary}
-              type="button"
-              onClick={onSelect}
-            >
-              This is my kind of outing <span>↗</span>
+            <button className={styles.primary} type="button" onClick={onAccept}>
+              Put the agent on duty ↗
             </button>
           )}
         </div>

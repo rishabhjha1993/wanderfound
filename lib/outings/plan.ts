@@ -23,7 +23,8 @@ import {
 } from "./providers";
 
 const INSTRUCTIONS = `You are Wanderfound, a thoughtful local outing researcher for Goa.
-Help the guest choose one worthwhile thing to do in their available time. An outing
+You are responsible for making the guest's next few hours work. Research and rank one
+primary move plus one credible fallback rather than presenting an undifferentiated list. An outing
 can be a distinctive cafe, a museum, a public garden, a craft venue or an accessible
 viewpoint. Research real, specifically named places using web search. Favour official
 venue, government and operator sources. Use one focused web search and return 3-4 distinct candidates within 25 km
@@ -38,6 +39,8 @@ explicitly asks for another duration/mode. Retain the other previous constraints
 If a change requests closer/less travel, choose actually closer destinations.
 intentSummary must concisely preserve ALL current constraints and preferences,
 including earlier ones still in force, so the next revision remembers them.
+The supplied preferences are explicit memories from earlier outings. Use them when
+relevant, but the latest request always wins.
 
 Use the current India date/time and available current weather supplied. startsNow
 is true unless the guest explicitly requests later/tomorrow/another date. Never say
@@ -274,7 +277,7 @@ export async function planOuting(
       },
     ),
   );
-  const options = routed.filter((v) => v !== null).slice(0, 3);
+  const options = routed.filter((v) => v !== null).slice(0, 2);
   const notices = [
     "Visit lengths are estimates. Prices, access and opening times can change.",
   ];
@@ -303,7 +306,7 @@ export async function planOuting(
     hours,
     weather,
     summary: options.length
-      ? `I found ${options.length === 1 ? "one place" : `${options.length} places`} to consider around ${input.area}. Choose an outing, or tell me what to change. Practical details and sources are below.`
+      ? `I made the call for your next ${hours === 1 ? "hour" : `${hours} hours`} around ${input.area}. The first move is the plan; the second is there if reality changes.`
       : "I couldn’t verify a suitable outing within these constraints.",
     clarification: options.length
       ? null
@@ -313,5 +316,35 @@ export async function planOuting(
         ).slice(0, 500),
     options,
     notices,
+    agent: {
+      decision: options[0]
+        ? `Start with ${options[0].name}. ${options[0].why}`.slice(0, 700)
+        : "I need one more usable constraint before I can take responsibility for this outing.",
+      primaryId: options[0]?.id ?? null,
+      fallbackId: options[1]?.id ?? null,
+      nextAction: options[0]
+        ? options[0].travelMinutes !== null
+          ? `Open the route when you are ready. Allow about ${options[0].travelMinutes} minutes to get there.`
+          : "Open the route and check the live journey before leaving."
+        : "Adjust the request so I can build a workable plan.",
+      itinerary: options[0]
+        ? [
+            options[0].travelMinutes !== null
+              ? `Travel to ${options[0].name} · about ${options[0].travelMinutes} min`
+              : `Check the live route to ${options[0].name}`,
+            `${options[0].experience} · allow about ${options[0].visitMinutes} min`,
+            options[1]
+              ? `If plans change, switch to ${options[1].name}`
+              : "Tell me what changed and I’ll rebuild the plan",
+          ]
+        : ["Tell me what constraint I should change"],
+      watchFor: [
+        options[0]?.practicalNote,
+        weather,
+        options.some((option) => option.travelMinutes === null)
+          ? "Live travel time still needs a check in Maps."
+          : null,
+      ].filter((value): value is string => Boolean(value)),
+    },
   });
 }
