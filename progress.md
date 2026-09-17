@@ -1,10 +1,38 @@
 # Wanderfound — Build Progress
 
-Last updated: 3 August 2026
+Last updated: 15 September 2026
 
-This is the quick, plain-language companion to [`plan.md`](./plan.md).
-`plan.md` remains the full product and engineering source of truth; this file
-answers “where are we right now?”
+The active product plan is [AI-native Goa V0](goa-ai-native-v0.md).
+
+## September V0 implementation
+
+- Public, guest-first home page replaces the mystery sign-in entry.
+- Natural-language requests, typed Goa starting areas, optional location,
+  time and transport controls.
+- OpenAI live web research, source matching, Google place verification,
+  closure/distance checks and mode-specific routing when available.
+- Revisions preserve current intent; browser sessions restore after refresh.
+- Share links omit private conversational context and starting location.
+- Navigation and voluntary outcome feedback produce anonymous server events.
+- Local validation: formatting, lint, TypeScript, 189 unit tests, 18 component tests,
+  and 5 mobile browser smoke tests. Real Panjim research returned sourced museum
+  and gallery choices; a live “hungry now” revision returned three food options
+  and preserved the party, location and transport constraints. Desktop and mobile
+  layouts were inspected. The production build passed.
+- Deployment target: the existing GitHub → Vercel production integration at
+  `https://wanderfound.vercel.app`. `/health` identifies this release as
+  `goa-outings-v0` and includes the deployed commit revision.
+
+Known limitation: existing server credentials still do not yield usable Routes
+responses. Travel times remain explicitly unverified in that case, direct distances
+are labelled, and users can check the journey in Google Maps. Pricing, access and
+future opening times are not guaranteed. Feedback is logged, not stored in a
+dedicated analytics database. Rate limits are per server instance.
+
+## Historical progress through August
+
+The sections below document the old walking-mystery build and its provider work.
+Its next-ticket instructions are superseded by the September V0.
 
 ## Current status
 

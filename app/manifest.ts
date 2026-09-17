@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Wanderfound",
     short_name: "Wanderfound",
-    description: "Turn wherever you are into a walkable, AI-generated mystery.",
+    description: "Find your next worthwhile outing in Goa.",
     start_url: "/",
     display: "standalone",
     background_color: "#f2eddf",

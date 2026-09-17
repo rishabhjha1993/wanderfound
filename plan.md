@@ -1,5 +1,11 @@
 # Wanderfound — Product and Build Plan
 
+> **15 September 2026 — superseded product direction.** The active V0 and release
+> criteria are in [goa-ai-native-v0.md](goa-ai-native-v0.md). The user chose a working
+> AI-native outing assistant, tested through actual use without a purchase gate.
+> This document preserves the earlier mystery roadmap; its implementation prompts
+> and ticket order are historical and must not restart that roadmap.
+
 > Working name: **Wanderfound**  
 > Working tagline: **The world is hiding in plain sight.**  
 > One-line product: **Wanderfound turns wherever you are into a walkable, AI-generated mystery.**

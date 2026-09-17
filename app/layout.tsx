@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import "./globals.css";
 
-const title = "Wanderfound — Turn here into an adventure";
+const title = "Wanderfound — Your next few hours, well wandered";
 const description =
-  "Wanderfound turns wherever you are into a walkable, AI-generated mystery.";
+  "Find your next worthwhile outing in Goa. Tell us your mood, time and starting area; get real places and practical details.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://wanderfound.app",
+    process.env.NEXT_PUBLIC_APP_URL || "https://wanderfound.vercel.app",
   ),
   title,
   description,
