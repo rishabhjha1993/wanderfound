@@ -156,6 +156,21 @@
 .prompt:focus-visible {
   box-shadow: 0 2px 0 var(--color-sun);
 }
+.promptWrap {
+  position: relative;
+}
+.voice {
+  position: absolute;
+  right: 0;
+  bottom: 14px;
+  border: 1px solid #d4dac8;
+  background: #f5f4eb;
+  color: var(--color-ink-soft);
+  border-radius: 30px;
+  padding: 8px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
 .starters {
   display: flex;
   gap: 8px;
@@ -258,6 +273,27 @@
   color: var(--color-ink-faint);
   padding-top: 17px;
 }
+.memory {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding-top: 13px;
+}
+.memory strong {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-right: 3px;
+}
+.memory span {
+  background: #edf0e5;
+  border: 1px solid #dce2d2;
+  border-radius: 20px;
+  padding: 6px 9px;
+  font-size: 10px;
+  color: var(--color-ink-soft);
+}
 .textButton {
   border: 0;
   background: none;
@@ -327,6 +363,214 @@
 .results {
   margin-top: 48px;
   scroll-margin-top: 25px;
+}
+.agentBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-block: 1px solid var(--color-line);
+  padding: 13px 2px;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  color: var(--color-ink-faint);
+}
+.agentBar > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-ink);
+}
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c49c55;
+}
+.pulseLive {
+  background: #4f7a50;
+  box-shadow: 0 0 0 5px #4f7a501c;
+  animation: agentPulse 2s ease-in-out infinite;
+}
+@keyframes agentPulse {
+  50% {
+    box-shadow: 0 0 0 9px #4f7a5000;
+  }
+}
+.decision {
+  max-width: 830px;
+  padding: 38px 0 26px;
+}
+.decision h2 {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 5vw, 62px);
+  font-weight: 400;
+  letter-spacing: -2.2px;
+  line-height: 1.06;
+  margin: 15px 0;
+}
+.decision > p:not(.weather):not(.stale) {
+  color: var(--color-ink-soft);
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 720px;
+}
+.agentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.85fr);
+  gap: 22px;
+  align-items: start;
+}
+.heroCard .cardArt {
+  height: 170px;
+}
+.heroCard .cardBody {
+  padding: 28px;
+}
+.heroCard h3 {
+  font-size: 36px;
+}
+.runSheet {
+  background: #173f36;
+  color: #f5f3e9;
+  padding: 27px;
+  border-radius: 14px;
+  position: sticky;
+  top: 20px;
+}
+.runSheet .label {
+  color: #d8c88e;
+}
+.nextAction {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 15px 0 24px;
+}
+.runSheet ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.runSheet li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  border-top: 1px solid #ffffff24;
+  padding: 14px 0;
+}
+.runSheet li > span {
+  color: #d8c88e;
+  font-size: 9px;
+  padding-top: 3px;
+}
+.runSheet li p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.watch {
+  background: #ffffff10;
+  margin-top: 14px;
+  padding: 15px;
+  border-radius: 8px;
+}
+.watch strong {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.watch p {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #e7eadf;
+}
+.fallback {
+  border: 1px solid #d7dccd;
+  background: #f4f4eb;
+  border-radius: 12px;
+  margin-top: 13px;
+  padding: 0 18px;
+}
+.fallback summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  cursor: pointer;
+  padding: 17px 0;
+  font-size: 11px;
+}
+.fallback summary span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fallback summary b {
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  color: #6b7f60;
+}
+.fallback > p {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  line-height: 1.6;
+}
+.fallback > div {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-bottom: 18px;
+}
+.fallback a {
+  color: var(--color-ink-soft);
+  font-size: 11px;
+}
+.liveConsole {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 25px;
+  background: #e2e8d7;
+  border-radius: 16px;
+  padding: 28px;
+  margin-top: 28px;
+}
+.liveConsole h3,
+.feedback h3 {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 400;
+  margin: 10px 0 4px;
+}
+.liveConsole p,
+.feedback p {
+  color: var(--color-ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.liveConsole > div:nth-child(2) {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-content: center;
+}
+.liveConsole > div:nth-child(2) button,
+.done {
+  border: 1px solid #bdc9b4;
+  background: #f7f7ef;
+  border-radius: 30px;
+  color: var(--color-ink);
+  font-size: 11px;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+.done {
+  grid-column: 1 / -1;
+  border-radius: 8px;
+  background: var(--color-ink);
+  color: white;
+  min-height: 44px;
 }
 .resultHeading {
   display: flex;
@@ -713,6 +957,12 @@
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .agentGrid {
+    grid-template-columns: 1fr;
+  }
+  .runSheet {
+    position: static;
+  }
   .how {
     gap: 22px;
   }
@@ -781,6 +1031,10 @@
     min-height: 110px;
     margin-top: 13px;
   }
+  .voice {
+    position: static;
+    margin-bottom: 14px;
+  }
   .starters {
     gap: 7px;
     margin-bottom: 20px;
@@ -830,6 +1084,43 @@
   .resultHeading h2 {
     font-size: 30px;
     letter-spacing: -0.8px;
+  }
+  .agentBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .decision {
+    padding: 28px 0 18px;
+  }
+  .decision h2 {
+    font-size: 38px;
+    letter-spacing: -1.4px;
+  }
+  .decision > p:not(.weather):not(.stale) {
+    font-size: 14px;
+  }
+  .heroCard .cardArt {
+    height: 135px;
+  }
+  .heroCard .cardBody {
+    padding: 21px;
+  }
+  .heroCard h3 {
+    font-size: 30px;
+  }
+  .runSheet {
+    padding: 22px;
+  }
+  .liveConsole {
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+  .done {
+    grid-column: auto;
+  }
+  .fallback > div {
+    align-items: stretch;
+    flex-direction: column;
   }
   .summary {
     font-size: 14px;

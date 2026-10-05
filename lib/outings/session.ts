@@ -23,6 +23,9 @@ export const SessionSchema = z.object({
     .max(10),
   result: OutingResultSchema.nullable(),
   selectedId: z.string().nullable(),
+  preferences: z.array(z.string().max(160)).max(8).default([]),
+  phase: z.enum(["planning", "active", "complete"]).default("planning"),
+  startedAt: z.number().nullable().default(null),
   updatedAt: z.number(),
 });
 export type OutingSession = z.infer<typeof SessionSchema>;
@@ -83,6 +86,17 @@ export function sharePayload(result: OutingResult, option: OutingOption) {
     notices: [
       "This is a shared snapshot. Opening information may have changed. Start a new outing for current research from your area.",
     ],
+    agent: {
+      decision: `Go to ${option.name}. Check the latest details before leaving.`,
+      primaryId: option.id,
+      fallbackId: null,
+      nextAction: "Open the live route when you are ready.",
+      itinerary: [
+        `Check the route to ${option.name}`,
+        "Explore at your own pace",
+      ],
+      watchFor: ["Opening information and travel time may have changed."],
+    },
   } satisfies OutingResult;
 }
 

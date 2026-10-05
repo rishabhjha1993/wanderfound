@@ -10,6 +10,14 @@ const fixture = {
   hours: 3,
   weather: null,
   notices: ["Check hours before leaving."],
+  agent: {
+    decision: "Go to Goa State Museum for a quiet cultural afternoon.",
+    primaryId: "test-place",
+    fallbackId: null,
+    nextAction: "Open the route when ready.",
+    itinerary: ["Travel to the museum", "Explore for about an hour"],
+    watchFor: ["Check access before leaving."],
+  },
   options: [
     {
       id: "test-place",
@@ -34,7 +42,7 @@ const fixture = {
   ],
 };
 
-test("guest generates, revises, restores and reports an outing", async ({
+test("agent decides, replans, restores and remembers an outing", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -63,42 +71,55 @@ test("guest generates, revises, restores and reports an outing", async ({
   });
   await page.goto("/");
   await page
-    .getByLabel("What would you like to do?")
+    .getByLabel("What is your situation right now?")
     .fill("Something cultural tomorrow afternoon");
   await page.getByLabel("STARTING AROUND").fill("Panjim");
-  await page.getByRole("button", { name: /Find my next move/ }).click();
+  await page.getByRole("button", { name: /Let the agent decide/ }).click();
   await expect(
-    page.getByRole("heading", { name: "An afternoon with Goa’s stories" }),
+    page.getByRole("heading", {
+      name: "An afternoon with Goa’s stories",
+      level: 2,
+    }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /A little closer/ }).click();
+  await page.getByRole("button", { name: /Put the agent on duty/ }).click();
+  await expect(page.getByText("AGENT ON DUTY")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Open live route/ }),
+  ).toHaveAttribute("href", /destination_place_id=test-place/);
+  await page.getByRole("button", { name: /We’re hungry/ }).click();
   await expect.poll(() => requests.length).toBe(2);
-  expect(requests[1].message).toBe("A little closer");
+  expect(requests[1].message).toContain("hungry now");
   expect(JSON.stringify(requests[1].history)).toContain(
     "Something cultural tomorrow afternoon",
   );
-  await page.getByRole("button", { name: /This is my kind of outing/ }).click();
-  await expect(page.getByRole("link", { name: /Let’s go/ })).toHaveAttribute(
-    "href",
-    /destination_place_id=test-place/,
-  );
+  await page.getByRole("button", { name: /Put the agent on duty/ }).click();
   await page.reload();
-  await expect(page.getByRole("link", { name: /Let’s go/ })).toBeVisible();
-  await page.getByRole("button", { name: "We went", exact: true }).click();
-  await page.getByRole("button", { name: "Yes, worth it" }).click();
+  await expect(page.getByText("AGENT ON DUTY")).toBeVisible();
+  await page.getByRole("button", { name: /done with this outing/ }).click();
+  await page.getByRole("button", { name: /We like a slow pace/ }).click();
   await expect
     .poll(() => events.some((event) => event.name === "went"))
     .toBe(true);
   await expect
-    .poll(() => events.some((event) => event.name === "useful"))
+    .poll(() => events.some((event) => event.name === "memory_added"))
     .toBe(true);
-  await page.getByRole("button", { name: "Share Goa State Museum" }).click();
+  await page.getByRole("button", { name: /Plan what’s next/ }).click();
+  await expect(page.getByText("We like a slow pace")).toBeVisible();
+  await page
+    .getByLabel("What is your situation right now?")
+    .fill("Another cultural place");
+  await page.getByRole("button", { name: /Let the agent decide/ }).click();
+  await page.getByRole("button", { name: /Put the agent on duty/ }).click();
+  await page.getByRole("button", { name: "Share this plan" }).click();
   const shareUrl = await page.evaluate(() =>
     sessionStorage.getItem("test-share-url"),
   );
   expect(shareUrl).toContain("#outing=");
   await page.goto(shareUrl!);
-  await expect(page.getByText("A DISCOVERY, PASSED ALONG")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Let’s go/ })).toBeVisible();
+  await expect(page.getByText("A PLAN, PASSED ALONG")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Open live route/ }),
+  ).toBeVisible();
 });
 
 test("a failed request preserves the draft for retry", async ({ page }) => {
@@ -110,16 +131,16 @@ test("a failed request preserves the draft for retry", async ({ page }) => {
   );
   await page.goto("/");
   await page
-    .getByLabel("What would you like to do?")
+    .getByLabel("What is your situation right now?")
     .fill("A good local bakery");
-  await page.getByRole("button", { name: /Find my next move/ }).click();
+  await page.getByRole("button", { name: /Let the agent decide/ }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "Please wait" }),
   ).toBeVisible();
-  await expect(page.getByLabel("What would you like to do?")).toHaveValue(
-    "A good local bakery",
-  );
   await expect(
-    page.getByRole("button", { name: /Find my next move/ }),
+    page.getByLabel("What is your situation right now?"),
+  ).toHaveValue("A good local bakery");
+  await expect(
+    page.getByRole("button", { name: /Let the agent decide/ }),
   ).toBeEnabled();
 });

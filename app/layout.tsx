@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import "./globals.css";
 
-const title = "Wanderfound — Your next few hours, well wandered";
+const title = "Wanderfound — Give me your next few hours";
 const description =
-  "Find your next worthwhile outing in Goa. Tell us your mood, time and starting area; get real places and practical details.";
+  "Brief an AI outing agent for Goa. It researches the real world, makes one decision, prepares a fallback and replans when reality changes.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(

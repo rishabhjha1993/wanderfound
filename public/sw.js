@@ -1,4 +1,4 @@
-const CACHE_NAME = "wanderfound-outings-v2";
+const CACHE_NAME = "wanderfound-agent-v3";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {
